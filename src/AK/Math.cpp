@@ -114,6 +114,20 @@ xform Math::mul_xforms(xform const& a, xform const& b)
     return result;
 }
 
+xform Math::mat4_to_xform(glm::mat4 const& m)
+{
+    xform xf;
+
+    // Extract translation
+    xf.pos = glm::vec3(m[3]); // The translation vector is in the fourth column
+
+    // Extract rotation
+    glm::mat3 const rotationMatrix = glm::mat3(m); // Extract the upper 3x3 submatrix
+    xf.rot = glm::quat_cast(rotationMatrix); // Convert 3x3 matrix to quaternion
+
+    return xf;
+}
+
 glm::mat4 Math::xform_to_mat4(xform const& m)
 {
     // Create a 4x4 identity matrix

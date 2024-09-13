@@ -24,6 +24,8 @@ struct Rig
             {
                 model_pose[i] = local_pose[i];
             }
+
+            // model_pose[i] = AK::Math::mul_xforms(model_pose[i], ref_pose[i]);
         }
 
         // Copying tracks will be handled here

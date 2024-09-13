@@ -33,6 +33,7 @@ public:
     static float ease_out_quart(float const x);
 
     static xform mul_xforms(xform const& a, xform const& b);
+    static xform mat4_to_xform(glm::mat4 const& m);
     static glm::mat4 xform_to_mat4(xform const& m);
 
     // Applies only for axis-aligned rectangles. Used mostly for buttons. Collider2D handles OBB in different way.
