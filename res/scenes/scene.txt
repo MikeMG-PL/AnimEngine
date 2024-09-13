@@ -70,9 +70,9 @@ Entities:
           NeedsForward: false
           CastsShadows: true
           IsBillboard: false
-  - Entity: SKINNED_MODEL
-    guid: c62450b2a9250ba4f365da3f97ebc671c1fceb99404babcc5709513c17754a17
-    Name: SKINNED_MODEL
+  - Entity: SKM
+    guid: 8bb7cd92191c071967b21ee84b41d97fd384d68e3bdcc0b991621c893cf44487
+    Name: SKM
     TransformComponent:
       Translation: [0, 0, 0]
       Rotation: [0, 0, 0]
@@ -81,10 +81,10 @@ Entities:
         guid: ""
     Components:
       - ComponentName: SkinnedModelComponent
-        guid: 5afef87a3a7f623b89e6e35760e25248b630ebb5bcb2ed0edff80d5db3de15e3
+        guid: 680bdcf671b1554bc934f80b1404499673556cad0c559231152cb9ecda5329bb
         custom_name: ""
         model_path: ./res/models/enemy/enemy.gltf
-        anim_path: ./res/models/enemy/enemy.gltf
+        anim_path: ./res/models/enemy/AS_Walking.gltf
         material:
           Shader:
             VertexPath: ./res/shaders/lit.hlsl

@@ -1,5 +1,6 @@
 #include "SkinnedModel.h"
 
+#include "AK/AK.h"
 #include "AK/Math.h"
 #include "AK/Types.h"
 #include "AnimationEngine.h"
@@ -30,6 +31,7 @@
 std::shared_ptr<SkinnedModel> SkinnedModel::create()
 {
     auto model = std::make_shared<SkinnedModel>(AK::Badge<SkinnedModel> {}, default_material);
+    model->prepare();
 
     return model;
 }
@@ -46,6 +48,7 @@ std::shared_ptr<SkinnedModel> SkinnedModel::create(std::string const& model_path
 std::shared_ptr<SkinnedModel> SkinnedModel::create(std::shared_ptr<Material> const& material)
 {
     auto model = std::make_shared<SkinnedModel>(AK::Badge<SkinnedModel> {}, material);
+    model->prepare();
 
     return model;
 }
@@ -75,6 +78,13 @@ void SkinnedModel::draw_editor()
     Drawable::draw_editor();
 
     ImGui::InputText("SkinnedModel Path", &model_path);
+
+    if (ImGui::IsItemDeactivatedAfterEdit())
+    {
+        reprepare();
+    }
+
+    ImGui::InputText("Animation Path", &anim_path);
 
     if (ImGui::IsItemDeactivatedAfterEdit())
     {
@@ -207,8 +217,8 @@ void SkinnedModel::load_model(std::string const& path, SkinningLoadMode const& l
     }
     if (load_mode == SkinningLoadMode::Anim)
     {
-        if (!m_scene)
-        // if (!m_scene || !m_scene->HasAnimations())
+        // if (!m_scene)
+        if (!m_scene || !m_scene->HasAnimations())
         {
             std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << "::LOADMODE::" << std::to_string(static_cast<int>(load_mode))
                       << std::endl;
@@ -221,21 +231,73 @@ void SkinnedModel::load_model(std::string const& path, SkinningLoadMode const& l
 
     if (load_mode == SkinningLoadMode::Rig)
     {
-        // Extract rig data from the scene
         extract_bone_data(m_scene->mRootNode, load_mode);
 
-        // Process meshes and use the extracted bone data
         process_node(m_scene->mRootNode);
+
+        aiVector3D v = {0, 0, 0};
+        aiQuaternion q = {1, 0, 0, 0};
+
+        m_scene->mMeshes[0]->mBones[1]->mNode->mTransformation.DecomposeNoScaling(q, v);
+
+        Debug::log(", position: " + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ", rotation: "
+                   + std::to_string(q.w) + ", " + std::to_string(q.x) + ", " + std::to_string(q.y) + ", " + std::to_string(q.z));
     }
-    if (load_mode == SkinningLoadMode::Anim)
+    if (load_mode == SkinningLoadMode::Anim && local_pose.size() <= m_rig.num_bones)
     {
-        for (u32 i = 0; i < m_rig.num_bones; i++)
+        // Assuming one animation for simplicity
+        // TODO: This may cause problems of course lol
+        // TODO: Attach animator, interpolate etc...
+
+        for (u32 i = 0; i < m_scene->mAnimations[0]->mNumChannels; i++)
         {
-            AK::xform transform;
-            local_pose.emplace_back(transform);
+            AK::xform keyframe = {};
+            local_pose.emplace_back(keyframe);
+
+            for (u32 j = 0; j < m_rig.num_bones; j++)
+            {
+                if (m_rig.bone_names[i] == m_scene->mAnimations[0]->mChannels[j]->mNodeName.C_Str())
+                {
+                    aiVector3D v = m_scene->mAnimations[0]->mChannels[j]->mPositionKeys[0].mValue;
+                    aiQuaternion q = m_scene->mAnimations[0]->mChannels[j]->mRotationKeys[0].mValue;
+
+                    // empty = {{v.x, -v.z, v.y}, {q.w, q.x, -q.z, q.y}};
+                    keyframe = {{v.x, -v.z, v.y}, {q.w, q.x, -q.z, q.y}}; // ?
+
+                    local_pose[i] = keyframe;
+
+                    break;
+                }
+            }
         }
 
-        process_node(m_scene->mRootNode);
+        // debug_xforms(local_pose);
+
+        if (!local_pose.empty() && local_pose.size() <= m_rig.num_bones)
+        {
+            // Fill model_pose with local_pose matrices to prevent from being empty
+            model_pose = local_pose;
+
+            // Local Space --> Model Space                          !!!!!!!!!
+            m_rig.local_to_model(local_pose, model_pose);
+
+            // debug_xforms(model_pose);
+
+            skinning_matrices.clear();
+
+            for (u16 i = 0; i < SKINNING_BUFFER_SIZE; i++)
+            {
+                skinning_matrices.emplace_back(1.0f);
+            }
+
+            for (u32 i = 0; i < m_rig.num_bones; i++)
+            {
+                skinning_matrices[i] = AK::Math::xform_to_mat4(model_pose[i]);
+            }
+
+            std::shared_ptr<Drawable> this_drawable = std::static_pointer_cast<Drawable>(shared_from_this());
+            RendererDX11::get_instance_dx11()->set_skinning_buffer(this_drawable, skinning_matrices.data());
+        }
     }
 }
 
@@ -277,7 +339,7 @@ std::shared_ptr<Mesh> SkinnedModel::proccess_mesh(aiMesh const* mesh)
             bone_id = i;
             weight = mesh->mBones[i]->mWeights[j].mWeight;
 
-            // Skip zero weights
+            // // Skip zero weights
             if (weight < 1e-6) // A small threshold to ignore near-zero weights
                 continue;
 
@@ -332,30 +394,6 @@ std::shared_ptr<Mesh> SkinnedModel::proccess_mesh(aiMesh const* mesh)
         {
             indices.push_back(face.mIndices[k]);
         }
-    }
-
-    if (!local_pose.empty())
-    {
-        // Fill model_pose with local_pose matrices to prevent from being empty
-        model_pose = local_pose;
-
-        // Local Space --> Model Space
-        m_rig.local_to_model(local_pose, model_pose);
-
-        skinning_matrices.clear();
-
-        for (u16 i = 0; i < SKINNING_BUFFER_SIZE; i++)
-        {
-            skinning_matrices.emplace_back(1.0f);
-        }
-
-        for (u32 i = 0; i < m_rig.num_bones; i++)
-        {
-            skinning_matrices[i] = AK::Math::xform_to_mat4(model_pose[i]);
-        }
-
-        std::shared_ptr<Drawable> this_drawable = std::static_pointer_cast<Drawable>(shared_from_this());
-        RendererDX11::get_instance_dx11()->set_skinning_buffer(this_drawable, skinning_matrices.data());
     }
 
     ////////////
@@ -420,7 +458,10 @@ void SkinnedModel::extract_bone_data(aiNode const* node, SkinningLoadMode mode)
     // Process each mesh node if it contains bones
     if (node->mNumMeshes > 0)
     {
-        aiMesh const* mesh = m_scene->mMeshes[node->mMeshes[0]]; // Assuming one mesh per node for simplicity
+        // Assuming one mesh per node for simplicity
+        // TODO: This may cause problems of course lol
+
+        aiMesh const* mesh = m_scene->mMeshes[node->mMeshes[0]];
         extract_bone_data_from_mesh(mesh, mode);
     }
 
@@ -471,4 +512,17 @@ void SkinnedModel::extract_bone_data_from_mesh(aiMesh const* mesh, SkinningLoadM
         m_rig.ref_pose.push_back(ref_pose);
     }
     m_rig.num_bones = mesh->mNumBones;
+}
+
+void SkinnedModel::debug_xforms(std::vector<AK::xform> const& xform)
+{
+    for (u32 i = 0; i < m_rig.num_bones; i++)
+    {
+        auto const vv = xform[i].pos;
+        auto const qq = xform[i].rot;
+
+        Debug::log(m_rig.bone_names[i] + ", position: " + std::to_string(vv.x) + ", " + std::to_string(vv.y) + ", " + std::to_string(vv.z)
+                   + ", rotation: " + std::to_string(qq.w) + ", " + std::to_string(qq.x) + ", " + std::to_string(qq.y) + ", "
+                   + std::to_string(qq.z));
+    }
 }

@@ -59,7 +59,7 @@ public:
     virtual bool is_skinned_model() const override;
 
     std::string model_path = "./res/models/enemy/enemy.gltf";
-    std::string anim_path = "./res/models/enemy/enemy.gltf";
+    std::string anim_path = "./res/models/enemy/AS_Walking.gltf";
 
     NON_SERIALIZED
     std::vector<glm::mat4> skinning_matrices = {};
@@ -79,12 +79,15 @@ private:
     void extract_bone_data(aiNode const* node, SkinningLoadMode mode);
     void extract_bone_data_from_mesh(aiMesh const* mesh, SkinningLoadMode mode);
 
+    void debug_xforms(std::vector<AK::xform> const& xform);
+
     aiScene const* m_scene = nullptr;
     std::unordered_map<std::string, i32> bone_names_to_ids = {};
     std::unordered_map<i32, std::string> bone_ids_to_names = {};
 
     std::vector<AK::xform> local_pose = {};
     std::vector<AK::xform> model_pose = {};
+    std::vector<AK::xform> processed_keyframe = {};
 
     std::string m_directory = "";
     std::vector<std::shared_ptr<Texture>> m_loaded_textures = {};
