@@ -1,6 +1,7 @@
 #include "AnimationEngine.h"
 
 #include "AK/AK.h"
+#include "Globals.h"
 
 void AnimationEngine::initialize()
 {
@@ -19,11 +20,10 @@ void AnimationEngine::update_animations() const
     {
         if (skinned_model->get_skinning_matrices())
         {
-            glm::mat4 rotation_matrix =
-                glm::rotate(glm::mat4(1.0f), static_cast<float>(glm::sin(glfwGetTime())), glm::vec3(0.0f, 1.0f, 0.0f));
-
-            skinned_model->skinning_matrices[6] = rotation_matrix * skinned_model->skinning_matrices[6];
-
+            u16 const rotation_bone_id = 35;
+            auto const value = static_cast<float>(delta_time);
+            glm::mat4 rotation_matrix = glm::rotate(glm::mat4(1.0f), value, glm::vec3(0.0f, 1.0f, 0.0f));
+            skinned_model->skinning_matrices[rotation_bone_id] = rotation_matrix * skinned_model->skinning_matrices[rotation_bone_id];
             renderer_dx11->set_skinning_buffer(skinned_model, skinned_model->get_skinning_matrices());
         }
     }
