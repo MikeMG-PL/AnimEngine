@@ -16,6 +16,9 @@ public:
     void register_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
     void unregister_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
 
+    // For debugging:
+    float time = 0.0f;
+
     static std::shared_ptr<AnimationEngine> get_instance()
     {
         return m_instance;
