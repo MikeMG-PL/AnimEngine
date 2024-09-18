@@ -61,12 +61,16 @@ VS_Output vs_main(VS_Input input)
             break;
         }
     }
-    
+
     if(has_influences)
     {   
         // Perform skinning calculations
         pos_skinned = float4(0.f,0.f,0.f,0.f);
         float4 norm_skinned = float4(0.f,0.f,0.f,0.f);
+
+        float4 input_pos_4 = float4(input.pos, 1.0f);
+        float4 input_norm_4 = float4(input.normal, 1.0f);
+        
         
         for(int i = 0; i < 4; i++)
         {
@@ -74,15 +78,15 @@ VS_Output vs_main(VS_Input input)
             {
                 float4x4 bone = bones[input.skin_indices[i]];
                 float weight = input.skin_weights[i];
-                pos_skinned += mul(mul(bone, input.pos), weight);            // posSkinned+=(bone*pos)*weight;
-                norm_skinned += mul(mul(bone, input.normal), weight);           // norm_skinned+=(bone*norm)*weight;
+                pos_skinned += mul(mul(bone, input_pos_4), weight);            // posSkinned+=(bone*pos)*weight;
+                norm_skinned += mul(mul(bone, input_norm_4), weight);           // norm_skinned+=(bone*norm)*weight;
             }
         }
         
         pos_skinned.w = 1.f;
     }
     
-    output.world_pos = mul(model, float4(input.pos, 1.0f));
+    output.world_pos = mul(model, pos_skinned);
     output.UV = input.UV;
     output.normal = normalize(mul(input.normal, (float3x3)model));
     output.pixel_pos = mul(projection_view_model, pos_skinned);
