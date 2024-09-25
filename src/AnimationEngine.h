@@ -1,5 +1,6 @@
 #pragma once
 #include "RendererDX11.h"
+#include "Rig.h"
 #include "SkinnedModel.h"
 
 #include <memory>
@@ -12,7 +13,8 @@ public:
     void operator=(AnimationEngine const&) = delete;
 
     void initialize();
-    void update_animations() const;
+    void update_animations();
+    void calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform);
     void register_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
     void unregister_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
 
@@ -35,4 +37,6 @@ public:
 private:
     inline static std::shared_ptr<AnimationEngine> m_instance;
     std::vector<std::shared_ptr<SkinnedModel>> m_skinned_models = {};
+    Animation m_current_animation = {};
+    std::vector<glm::mat4> m_final_bone_matrices = {};
 };

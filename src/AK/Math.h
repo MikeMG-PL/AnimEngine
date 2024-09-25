@@ -5,6 +5,7 @@
 #include <glm/vec2.hpp>
 
 #include "Types.h"
+#include "assimp/matrix4x4.h"
 #include "glm/fwd.hpp"
 #include "glm/gtc/quaternion.hpp"
 
@@ -35,6 +36,7 @@ public:
     static xform mul_xforms(xform const& a, xform const& b);
     static xform mat4_to_xform(glm::mat4 const& m);
     static glm::mat4 xform_to_mat4(xform const& m);
+    static glm::mat4 ai_matrix_to_glm(aiMatrix4x4 const& from);
 
     // Applies only for axis-aligned rectangles. Used mostly for buttons. Collider2D handles OBB in different way.
     static bool is_point_inside_rectangle(glm::vec2 const& point, std::array<glm::vec2, 4> const& rectangle_corners);
