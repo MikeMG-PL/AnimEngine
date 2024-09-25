@@ -6,16 +6,17 @@
 
 #include "AK/Badge.h"
 #include "Mesh.h"
-#include "Rig.h"
 #include "Texture.h"
 
-#include <unordered_map>
+#include <map>
 
+struct BoneInfo;
 struct aiBone;
 struct aiMaterial;
 struct aiMesh;
 struct aiScene;
 struct aiNode;
+struct Rig;
 
 enum class SkinningLoadMode
 {
@@ -58,6 +59,9 @@ public:
 
     virtual bool is_skinned_model() const override;
 
+    std::map<std::string, BoneInfo> get_bone_info_map() const;
+    u32 get_bone_count() const;
+
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/models/enemy/AS_Walking.gltf";
 
@@ -76,21 +80,17 @@ private:
     std::shared_ptr<Mesh> proccess_mesh(aiMesh const* mesh);
     std::vector<std::shared_ptr<Texture>> load_material_textures(aiMaterial const* material, aiTextureType type,
                                                                  TextureType const type_name);
-    void extract_bone_data(aiNode const* node, SkinningLoadMode mode);
-    void extract_bone_data_from_mesh(aiMesh const* mesh, SkinningLoadMode mode);
+    // void extract_bone_data(aiNode const* node, SkinningLoadMode mode);
+    // void extract_bone_data_from_mesh(aiMesh const* mesh, SkinningLoadMode mode);
 
-    void debug_xforms(std::vector<AK::xform> const& xform);
+    void extract_bone_weight_for_vertices(std::vector<Vertex>& vertices, aiMesh const* mesh);
+    void set_vertex_bone_data(Vertex& vertex, i32 bone_id, float weight);
+    void set_vertex_bone_data_to_default(Vertex& vertex);
 
     aiScene const* m_scene = nullptr;
-    std::unordered_map<std::string, i32> bone_names_to_ids = {};
-    std::unordered_map<i32, std::string> bone_ids_to_names = {};
-
-    std::vector<AK::xform> local_pose = {};
-    std::vector<AK::xform> model_pose = {};
-    std::vector<AK::xform> processed_keyframe = {};
+    std::map<std::string, BoneInfo> m_bone_info_map = {};
+    u32 m_bone_counter = 0;
 
     std::string m_directory = "";
     std::vector<std::shared_ptr<Texture>> m_loaded_textures = {};
-
-    Rig m_rig = {};
 };

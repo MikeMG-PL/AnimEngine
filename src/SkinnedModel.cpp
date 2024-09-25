@@ -135,6 +135,16 @@ bool SkinnedModel::is_skinned_model() const
     return true;
 }
 
+std::map<std::string, BoneInfo> SkinnedModel::get_bone_info_map() const
+{
+    return m_bone_info_map;
+}
+
+u32 SkinnedModel::get_bone_count() const
+{
+    return m_bone_counter;
+}
+
 SkinnedModel::SkinnedModel(std::shared_ptr<Material> const& material) : Drawable(material)
 {
 }
@@ -215,90 +225,11 @@ void SkinnedModel::load_model(std::string const& path, SkinningLoadMode const& l
         std::cout << "Error. Failed loading a model: " << importer.GetErrorString() << "\n";
         return;
     }
-    if (load_mode == SkinningLoadMode::Anim)
-    {
-        // if (!m_scene)
-        if (!m_scene || !m_scene->HasAnimations())
-        {
-            std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << "::LOADMODE::" << std::to_string(static_cast<int>(load_mode))
-                      << std::endl;
-            return;
-        }
-    }
 
     std::filesystem::path const filesystem_path = path;
     m_directory = filesystem_path.parent_path().string();
 
-    if (load_mode == SkinningLoadMode::Rig)
-    {
-        extract_bone_data(m_scene->mRootNode, load_mode);
-
-        process_node(m_scene->mRootNode);
-
-        aiVector3D v = {0, 0, 0};
-        aiQuaternion q = {1, 0, 0, 0};
-
-        m_scene->mMeshes[0]->mBones[1]->mNode->mTransformation.DecomposeNoScaling(q, v);
-
-        Debug::log(", position: " + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ", rotation: "
-                   + std::to_string(q.w) + ", " + std::to_string(q.x) + ", " + std::to_string(q.y) + ", " + std::to_string(q.z));
-    }
-    if (load_mode == SkinningLoadMode::Anim && local_pose.size() <= m_rig.num_bones)
-    {
-        // Assuming one animation for simplicity
-        // TODO: This may cause problems of course lol
-        // TODO: Attach animator, interpolate etc...
-
-        for (u32 i = 0; i < m_scene->mAnimations[0]->mNumChannels; i++)
-        {
-            AK::xform keyframe = {};
-            local_pose.emplace_back(keyframe);
-
-            for (u32 j = 0; j < m_rig.num_bones; j++)
-            {
-                if (m_rig.bone_names[i] == m_scene->mAnimations[0]->mChannels[j]->mNodeName.C_Str())
-                {
-                    aiVector3D v = m_scene->mAnimations[0]->mChannels[j]->mPositionKeys[0].mValue;
-                    aiQuaternion q = m_scene->mAnimations[0]->mChannels[j]->mRotationKeys[0].mValue;
-
-                    // empty = {{v.x, -v.z, v.y}, {q.w, q.x, -q.z, q.y}};
-                    keyframe = {{v.x, -v.z, v.y}, {q.w, q.x, -q.z, q.y}}; // ?
-
-                    local_pose[i] = keyframe;
-
-                    break;
-                }
-            }
-        }
-
-        // debug_xforms(local_pose);
-
-        if (!local_pose.empty() && local_pose.size() <= m_rig.num_bones)
-        {
-            // Fill model_pose with local_pose matrices to prevent from being empty
-            model_pose = local_pose;
-
-            // Local Space --> Model Space                          !!!!!!!!!
-            m_rig.local_to_model(local_pose, model_pose);
-
-            // debug_xforms(model_pose);
-
-            skinning_matrices.clear();
-
-            for (u16 i = 0; i < SKINNING_BUFFER_SIZE; i++)
-            {
-                skinning_matrices.emplace_back(1.0f);
-            }
-
-            for (u32 i = 0; i < m_rig.num_bones; i++)
-            {
-                skinning_matrices[i] = AK::Math::xform_to_mat4(model_pose[i]);
-            }
-
-            std::shared_ptr<Drawable> this_drawable = std::static_pointer_cast<Drawable>(shared_from_this());
-            RendererDX11::get_instance_dx11()->set_skinning_buffer(this_drawable, skinning_matrices.data());
-        }
-    }
+    process_node(m_scene->mRootNode);
 }
 
 void SkinnedModel::process_node(aiNode const* node)
@@ -321,50 +252,15 @@ std::shared_ptr<Mesh> SkinnedModel::proccess_mesh(aiMesh const* mesh)
     std::vector<u32> indices;
     std::vector<std::shared_ptr<Texture>> textures;
 
-    glm::ivec4 skinIndices = {-1, -1, -1, -1};
-    glm::vec4 skinWeights = {0.0f, 0.0f, 0.0f, 0.0f};
-
-    std::map<u32, glm::ivec4> vertex_to_bone_indices;
-    std::map<u32, glm::vec4> vertex_to_bone_weights;
-    Vertex vertex;
     u32 vertex_id = 0;
     u32 bone_id = 0;
     float weight = 0.0f;
 
-    for (int i = 0; i < mesh->mNumBones; i++)
-    {
-        for (int j = 0; j < mesh->mBones[i]->mNumWeights; j++)
-        {
-            vertex_id = mesh->mBones[i]->mWeights[j].mVertexId;
-            bone_id = i;
-            weight = mesh->mBones[i]->mWeights[j].mWeight;
-
-            // // Skip zero weights
-            if (weight < 1e-6) // A small threshold to ignore near-zero weights
-                continue;
-
-            // Initialize the ivec4 with -1s and vec4 with 0s - default values
-            if (!vertex_to_bone_indices.contains(vertex_id))
-            {
-                vertex_to_bone_indices.try_emplace(vertex_id, skinIndices);
-                vertex_to_bone_weights.try_emplace(vertex_id, skinWeights);
-            }
-
-            // Assign bone influence if an empty slot is found
-            for (int b = 0; b < 4; ++b)
-            {
-                if (vertex_to_bone_indices[vertex_id][b] == -1)
-                {
-                    vertex_to_bone_indices[vertex_id][b] = bone_id;
-                    vertex_to_bone_weights[vertex_id][b] = weight;
-                    break; // Exit the loop once the assignment is done
-                }
-            }
-        }
-    }
-
     for (u32 i = 0; i < mesh->mNumVertices; ++i)
     {
+        Vertex vertex;
+        set_vertex_bone_data_to_default(vertex);
+
         vertex.position = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
 
         if (mesh->HasNormals())
@@ -380,9 +276,6 @@ std::shared_ptr<Mesh> SkinnedModel::proccess_mesh(aiMesh const* mesh)
         {
             vertex.texture_coordinates = glm::vec2(0.0f, 0.0f);
         }
-
-        vertex.skin_indices = vertex_to_bone_indices[i];
-        vertex.skin_weights = vertex_to_bone_weights[i];
 
         vertices.push_back(vertex);
     }
@@ -407,6 +300,8 @@ std::shared_ptr<Mesh> SkinnedModel::proccess_mesh(aiMesh const* mesh)
     std::vector<std::shared_ptr<Texture>> specular_maps =
         load_material_textures(assimp_material, aiTextureType_SPECULAR, TextureType::Specular);
     textures.insert(textures.end(), specular_maps.begin(), specular_maps.end());
+
+    extract_bone_weight_for_vertices(vertices, mesh);
 
     return ResourceManager::get_instance().load_mesh(m_meshes.size(), model_path, vertices, indices, textures, m_draw_type, material);
 }
@@ -453,76 +348,57 @@ std::vector<std::shared_ptr<Texture>> SkinnedModel::load_material_textures(aiMat
     return textures;
 }
 
-void SkinnedModel::extract_bone_data(aiNode const* node, SkinningLoadMode mode)
+void SkinnedModel::extract_bone_weight_for_vertices(std::vector<Vertex>& vertices, aiMesh const* mesh)
 {
-    // Process each mesh node if it contains bones
-    if (node->mNumMeshes > 0)
+    for (int bone_index = 0; bone_index < mesh->mNumBones; ++bone_index)
     {
-        // Assuming one mesh per node for simplicity
-        // TODO: This may cause problems of course lol
-
-        aiMesh const* mesh = m_scene->mMeshes[node->mMeshes[0]];
-        extract_bone_data_from_mesh(mesh, mode);
-    }
-
-    // Recursively process child nodes
-    for (unsigned int i = 0; i < node->mNumChildren; i++)
-    {
-        extract_bone_data(node->mChildren[i], mode);
-    }
-}
-
-void SkinnedModel::extract_bone_data_from_mesh(aiMesh const* mesh, SkinningLoadMode mode)
-{
-    // Extract bone data from the mesh
-    for (unsigned int i = 0; i < mesh->mNumBones; i++)
-    {
-        // Extract bone name, parent index, and bind pose
-        aiBone const* bone = mesh->mBones[i];
-        std::string parent_bone_name;
-        std::string bone_name = bone->mName.C_Str();
-
-        if (bone->mNode == nullptr || bone->mNode->mParent == nullptr)
-            parent_bone_name = "";
-        else
-            parent_bone_name = bone->mNode->mParent->mName.C_Str();
-
-        // Find parent bone in the mBones array
-        i32 parentIndex = -1;
-
-        for (u32 j = 0; j < mesh->mNumBones; j++)
+        int bone_id = -1;
+        std::string bone_name = mesh->mBones[bone_index]->mName.C_Str();
+        if (!m_bone_info_map.contains(bone_name))
         {
-            std::string const checkedBoneName = mesh->mBones[j]->mName.C_Str();
-            if (i != j && parent_bone_name == checkedBoneName)
-            {
-                // Found the parent bone
-                parentIndex = j;
-                break;
-            }
+            BoneInfo new_bone_info;
+            new_bone_info.id = m_bone_counter;
+            new_bone_info.offset = AK::Math::ai_matrix_to_glm(mesh->mBones[bone_index]->mOffsetMatrix);
+            m_bone_info_map[bone_name] = new_bone_info;
+            bone_id = m_bone_counter;
+            m_bone_counter++;
         }
+        else
+        {
+            bone_id = m_bone_info_map[bone_name].id;
+        }
+        assert(bone_id != -1);
+        auto const weights = mesh->mBones[bone_index]->mWeights;
+        i32 const num_weights = mesh->mBones[bone_index]->mNumWeights;
 
-        aiMatrix4x4 const ai_inverse_bind_pose = bone->mOffsetMatrix;
-        aiQuaternion q = {1.0f, 0.0f, 0.0f, 0.0f};
-        aiVector3D v = {0.0f, 0.0f, 0.0f};
-        ai_inverse_bind_pose.DecomposeNoScaling(q, v);
-        AK::xform ref_pose = {{v.x, v.y, v.z}, {q.w, q.x, q.y, q.z}};
-
-        m_rig.bone_names.push_back(bone_name);
-        m_rig.parents.push_back(parentIndex);
-        m_rig.ref_pose.push_back(ref_pose);
+        for (int weight_index = 0; weight_index < num_weights; ++weight_index)
+        {
+            i32 const vertex_id = weights[weight_index].mVertexId;
+            float const weight = weights[weight_index].mWeight;
+            assert(vertex_id <= vertices.size());
+            set_vertex_bone_data(vertices[vertex_id], bone_id, weight);
+        }
     }
-    m_rig.num_bones = mesh->mNumBones;
 }
 
-void SkinnedModel::debug_xforms(std::vector<AK::xform> const& xform)
+void SkinnedModel::set_vertex_bone_data(Vertex& vertex, i32 bone_id, float weight)
 {
-    for (u32 i = 0; i < m_rig.num_bones; i++)
+    for (int i = 0; i < 4; ++i)
     {
-        auto const vv = xform[i].pos;
-        auto const qq = xform[i].rot;
+        if (vertex.skin_indices[i] < 0 || vertex.skin_weights[i] < 0.000001f)
+        {
+            vertex.skin_weights[i] = weight;
+            vertex.skin_indices[i] = bone_id;
+            break;
+        }
+    }
+}
 
-        Debug::log(m_rig.bone_names[i] + ", position: " + std::to_string(vv.x) + ", " + std::to_string(vv.y) + ", " + std::to_string(vv.z)
-                   + ", rotation: " + std::to_string(qq.w) + ", " + std::to_string(qq.x) + ", " + std::to_string(qq.y) + ", "
-                   + std::to_string(qq.z));
+void SkinnedModel::set_vertex_bone_data_to_default(Vertex& vertex)
+{
+    for (int i = 0; i < 4; i++)
+    {
+        vertex.skin_indices[i] = -1;
+        vertex.skin_weights[i] = 0.0f;
     }
 }

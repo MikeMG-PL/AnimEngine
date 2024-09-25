@@ -5,6 +5,7 @@
 #include "glm/gtx/quaternion.hpp"
 
 #include <corecrt_math_defines.h>
+#include <glad/glad.h>
 #include <glm/gtc/epsilon.hpp>
 
 namespace AK
@@ -126,6 +127,28 @@ xform Math::mat4_to_xform(glm::mat4 const& m)
     xf.rot = glm::quat_cast(rotationMatrix); // Convert 3x3 matrix to quaternion
 
     return xf;
+}
+
+glm::mat4 Math::ai_matrix_to_glm(aiMatrix4x4 const& from)
+{
+    auto to = glm::mat4(1.0f);
+    to[0][0] = static_cast<GLfloat>(from.a1);
+    to[0][1] = static_cast<GLfloat>(from.b1);
+    to[0][2] = static_cast<GLfloat>(from.c1);
+    to[0][3] = static_cast<GLfloat>(from.d1);
+    to[1][0] = static_cast<GLfloat>(from.a2);
+    to[1][1] = static_cast<GLfloat>(from.b2);
+    to[1][2] = static_cast<GLfloat>(from.c2);
+    to[1][3] = static_cast<GLfloat>(from.d2);
+    to[2][0] = static_cast<GLfloat>(from.a3);
+    to[2][1] = static_cast<GLfloat>(from.b3);
+    to[2][2] = static_cast<GLfloat>(from.c3);
+    to[2][3] = static_cast<GLfloat>(from.d3);
+    to[3][0] = static_cast<GLfloat>(from.a4);
+    to[3][1] = static_cast<GLfloat>(from.b4);
+    to[3][2] = static_cast<GLfloat>(from.c4);
+    to[3][3] = static_cast<GLfloat>(from.d4);
+    return to;
 }
 
 glm::mat4 Math::xform_to_mat4(xform const& m)
