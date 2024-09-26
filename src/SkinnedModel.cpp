@@ -398,12 +398,13 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 {
     std::string const node_name = node->name;
     glm::mat4 node_transform = node->transformation;
+
     if (skinning_matrices.empty())
         skinning_matrices.resize(512);
 
     if (Bone* bone = find_bone(node_name))
     {
-        bone->update(0.0f);
+        bone->update(abs(sin(glfwGetTime())) * 1000.0f);
         node_transform = bone->local_transform;
     }
 
