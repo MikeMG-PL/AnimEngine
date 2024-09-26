@@ -15,27 +15,6 @@ struct Rig
     std::vector<i32> parents = {};
     std::vector<AK::xform> ref_pose = {};
     u32 num_bones = 0;
-
-    void local_to_model(std::vector<AK::xform> const& local_pose, std::vector<AK::xform>& model_pose)
-    {
-        for (u32 i = 0; i < num_bones; ++i)
-        {
-            i32 const id_parent = parents[i];
-            if (id_parent >= 0)
-            {
-                model_pose[i] = AK::Math::mul_xforms(model_pose[id_parent], local_pose[i]);
-            }
-            else
-            {
-                model_pose[i] = local_pose[i];
-            }
-
-            // model_pose[i] = AK::Math::mul_xforms(model_pose[i], ref_pose[i]);
-        }
-
-        // Copying tracks will be handled here
-        // ...
-    }
 };
 
 struct BoneInfo
@@ -99,9 +78,57 @@ struct Bone
 
     void update(float animation_time)
     {
-        glm::mat4 const translation = test_position();
-        glm::mat4 const rotation = test_rotation();
+        glm::mat4 const translation = interpolate_position(animation_time);
+        glm::mat4 const rotation = interpolate_rotation(animation_time);
         local_transform = translation * rotation * glm::mat4(1.0f); // skalujesz zalujesz
+    }
+
+    u32 get_position_index(float animation_time)
+    {
+        for (int index = 0; index < num_positions - 1; ++index)
+        {
+            if (animation_time < positions[index + 1].time_stamp)
+                return index;
+        }
+        assert(false);
+        std::unreachable();
+    }
+
+    u32 get_rotation_index(float animation_time)
+    {
+        for (int index = 0; index < num_rotations - 1; ++index)
+        {
+            if (animation_time < rotations[index + 1].time_stamp)
+                return index;
+        }
+        assert(false);
+        std::unreachable();
+    }
+
+    glm::mat4 interpolate_position(float animation_time)
+    {
+        if (num_positions == 1)
+            return glm::translate(glm::mat4(1.0f), positions[0].position);
+
+        auto const p0_index = get_position_index(animation_time);
+        auto const p1_index = p0_index + 1;
+        glm::vec3 const final_position = glm::mix(positions[p0_index].position, positions[p1_index].position, 1.0f);
+        return glm::translate(glm::mat4(1.0f), final_position);
+    }
+
+    glm::mat4 interpolate_rotation(float animation_time)
+    {
+        if (num_rotations == 1)
+        {
+            auto const rotation = glm::normalize(rotations[0].orientation);
+            return glm::toMat4(rotation);
+        }
+
+        auto const p0_index = get_rotation_index(animation_time);
+        auto const p1_index = p0_index + 1;
+        glm::quat final_rotation = glm::slerp(rotations[p0_index].orientation, rotations[p1_index].orientation, 1.0f);
+        final_rotation = glm::normalize(final_rotation);
+        return glm::toMat4(final_rotation);
     }
 
     glm::mat4 test_position()
