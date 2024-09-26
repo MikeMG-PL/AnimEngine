@@ -1,11 +1,8 @@
 #pragma once
 
 #include "AK/Math.h"
-#include "SkinnedModel.h"
 #include "assimp/Importer.hpp"
 #include "assimp/anim.h"
-#include "assimp/postprocess.h"
-#include "assimp/scene.h"
 #include "glm/gtx/quaternion.hpp"
 
 #include <map>
@@ -134,68 +131,4 @@ struct Animation
     std::vector<Bone> bones = {};
     AssimpNodeData root_node = {};
     std::map<std::string, BoneInfo> bone_info_map = {};
-
-    void init(std::string const& animationPath, SkinnedModel const* model)
-    {
-        Assimp::Importer importer;
-        aiScene const* scene = importer.ReadFile(animationPath, aiProcess_Triangulate);
-        assert(scene && scene->mRootNode);
-        auto const animation = scene->mAnimations[0];
-        duration = animation->mDuration;
-        ticks_per_second = animation->mTicksPerSecond;
-        read_hierarchy_data(root_node, scene->mRootNode);
-        read_missing_bones(animation, *model);
-    }
-
-    void read_hierarchy_data(AssimpNodeData& dest, aiNode const* src)
-    {
-        assert(src);
-
-        dest.name = src->mName.data;
-        dest.transformation = AK::Math::ai_matrix_to_glm(src->mTransformation);
-        dest.children_count = src->mNumChildren;
-
-        for (int i = 0; i < src->mNumChildren; i++)
-        {
-            AssimpNodeData newData;
-            read_hierarchy_data(newData, src->mChildren[i]);
-            dest.children.push_back(newData);
-        }
-    }
-
-    void read_missing_bones(aiAnimation const* animation, SkinnedModel const& model)
-    {
-        u32 const size = animation->mNumChannels;
-
-        std::map<std::string, BoneInfo> new_bone_info_map = model.get_bone_info_map(); //getting m_BoneInfoMap from Model class
-        u32 bone_count = model.get_bone_count(); //getting the m_BoneCounter from Model class
-
-        //reading channels(bones engaged in an animation and their keyframes)
-        for (int i = 0; i < size; i++)
-        {
-            auto const channel = animation->mChannels[i];
-            std::string boneName = channel->mNodeName.data;
-
-            if (!new_bone_info_map.contains(boneName))
-            {
-                new_bone_info_map[boneName].id = bone_count;
-                bone_count++;
-            }
-
-            Bone bone;
-            bone.init(channel->mNodeName.data, new_bone_info_map[channel->mNodeName.data].id, channel);
-            bones.push_back(bone);
-        }
-
-        bone_info_map = new_bone_info_map;
-    }
-
-    Bone* find_bone(std::string const& name)
-    {
-        auto const iter = std::ranges::find_if(bones, [&](Bone const& bone) { return bone.name == name; });
-        if (iter == bones.end())
-            return nullptr;
-
-        return &(*iter);
-    }
 };
