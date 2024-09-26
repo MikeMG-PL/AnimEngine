@@ -135,16 +135,6 @@ bool SkinnedModel::is_skinned_model() const
     return true;
 }
 
-std::map<std::string, BoneInfo> SkinnedModel::get_bone_info_map() const
-{
-    return m_bone_info_map;
-}
-
-u32 SkinnedModel::get_bone_count() const
-{
-    return m_bone_counter;
-}
-
 SkinnedModel::SkinnedModel(std::shared_ptr<Material> const& material) : Drawable(material)
 {
 }
@@ -230,6 +220,7 @@ void SkinnedModel::load_model(std::string const& path, SkinningLoadMode const& l
     m_directory = filesystem_path.parent_path().string();
 
     process_node(m_scene->mRootNode);
+    initialize_animation();
 }
 
 void SkinnedModel::process_node(aiNode const* node)
@@ -401,4 +392,94 @@ void SkinnedModel::set_vertex_bone_data_to_default(Vertex& vertex)
         vertex.skin_indices[i] = -1;
         vertex.skin_weights[i] = 0.0f;
     }
+}
+
+void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform)
+{
+    std::string const node_name = node->name;
+    glm::mat4 node_transform = node->transformation;
+    if (skinning_matrices.empty())
+        skinning_matrices.resize(512);
+
+    if (Bone* bone = find_bone(node_name))
+    {
+        bone->update(0.0f);
+        node_transform = bone->local_transform;
+    }
+
+    glm::mat4 const global_transformation = parent_transform * node_transform;
+
+    auto bone_info_map = animation.bone_info_map;
+    if (bone_info_map.contains(node_name))
+    {
+        i32 const index = bone_info_map[node_name].id;
+        glm::mat4 const offset = bone_info_map[node_name].offset;
+        skinning_matrices[index] = global_transformation * offset;
+    }
+
+    for (int i = 0; i < node->children_count; i++)
+        calculate_bone_transform(&node->children[i], global_transformation);
+}
+
+void SkinnedModel::initialize_animation()
+{
+    Assimp::Importer importer;
+    aiScene const* scene = importer.ReadFile(anim_path, aiProcess_Triangulate);
+    assert(scene && scene->mRootNode);
+    auto const assimp_animation = scene->mAnimations[0];
+    animation.duration = assimp_animation->mDuration;
+    animation.ticks_per_second = assimp_animation->mTicksPerSecond;
+    read_hierarchy_data(animation.root_node, scene->mRootNode);
+    read_missing_bones(assimp_animation);
+}
+
+void SkinnedModel::read_hierarchy_data(AssimpNodeData& dest, aiNode const* src)
+{
+    assert(src);
+
+    dest.name = src->mName.data;
+    dest.transformation = AK::Math::ai_matrix_to_glm(src->mTransformation);
+    dest.children_count = src->mNumChildren;
+
+    for (int i = 0; i < src->mNumChildren; i++)
+    {
+        AssimpNodeData newData;
+        read_hierarchy_data(newData, src->mChildren[i]);
+        dest.children.push_back(newData);
+    }
+}
+
+void SkinnedModel::read_missing_bones(aiAnimation const* assimp_animation)
+{
+    u32 const size = assimp_animation->mNumChannels;
+
+    std::map<std::string, BoneInfo> new_bone_info_map = m_bone_info_map;
+    u32 bone_count = m_bone_counter;
+
+    for (int i = 0; i < size; i++)
+    {
+        auto const channel = assimp_animation->mChannels[i];
+        std::string boneName = channel->mNodeName.data;
+
+        if (!new_bone_info_map.contains(boneName))
+        {
+            new_bone_info_map[boneName].id = bone_count;
+            bone_count++;
+        }
+
+        Bone bone;
+        bone.init(channel->mNodeName.data, new_bone_info_map[channel->mNodeName.data].id, channel);
+        animation.bones.push_back(bone);
+    }
+
+    animation.bone_info_map = new_bone_info_map;
+}
+
+Bone* SkinnedModel::find_bone(std::string const& name)
+{
+    auto const iter = std::ranges::find_if(animation.bones, [&](Bone const& bone) { return bone.name == name; });
+    if (iter == animation.bones.end())
+        return nullptr;
+
+    return &(*iter);
 }

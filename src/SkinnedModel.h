@@ -6,6 +6,7 @@
 
 #include "AK/Badge.h"
 #include "Mesh.h"
+#include "Rig.h"
 #include "Texture.h"
 
 #include <map>
@@ -16,7 +17,6 @@ struct aiMaterial;
 struct aiMesh;
 struct aiScene;
 struct aiNode;
-struct Rig;
 
 enum class SkinningLoadMode
 {
@@ -58,15 +58,16 @@ public:
     virtual BoundingBox get_adjusted_bounding_box(glm::mat4 const& model_matrix) const override;
 
     virtual bool is_skinned_model() const override;
-
-    std::map<std::string, BoneInfo> get_bone_info_map() const;
-    u32 get_bone_count() const;
+    void calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform);
 
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/models/enemy/AS_Walking.gltf";
 
     NON_SERIALIZED
     std::vector<glm::mat4> skinning_matrices = {};
+
+    NON_SERIALIZED
+    Animation animation = {};
 
 protected:
     explicit SkinnedModel(std::shared_ptr<Material> const& material);
@@ -86,6 +87,11 @@ private:
     void extract_bone_weight_for_vertices(std::vector<Vertex>& vertices, aiMesh const* mesh);
     void set_vertex_bone_data(Vertex& vertex, i32 bone_id, float weight);
     void set_vertex_bone_data_to_default(Vertex& vertex);
+
+    void initialize_animation();
+    void read_hierarchy_data(AssimpNodeData& dest, aiNode const* src);
+    void read_missing_bones(aiAnimation const* assimp_animation);
+    Bone* find_bone(std::string const& name);
 
     aiScene const* m_scene = nullptr;
     std::map<std::string, BoneInfo> m_bone_info_map = {};
