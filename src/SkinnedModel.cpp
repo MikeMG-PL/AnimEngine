@@ -404,7 +404,7 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
     if (Bone* bone = find_bone(node_name))
     {
-        bone->update(abs(sin(glfwGetTime())) * 1000.0f);
+        bone->update(AnimationEngine::get_instance()->get_current_time());
         node_transform = bone->local_transform;
     }
 
