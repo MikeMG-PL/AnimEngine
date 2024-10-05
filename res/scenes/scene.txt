@@ -4,9 +4,9 @@ Entities:
     guid: 045c29ad4d962ca401160a399e9b06ac6ca92dc7c95ed1705c36688546211bfb
     Name: NOT_SKINNED_model
     TransformComponent:
-      Translation: [-3, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Translation: [-4.47434235, 0, -2.51046038]
+      Rotation: [0, 31.447155, 0]
+      Scale: [0.999999762, 1, 0.999999762]
       Parent:
         guid: ""
     Components:
@@ -74,9 +74,9 @@ Entities:
     guid: 8bb7cd92191c071967b21ee84b41d97fd384d68e3bdcc0b991621c893cf44487
     Name: SKM
     TransformComponent:
-      Translation: [0, 0, 0]
-      Rotation: [0, 0, 0]
-      Scale: [1, 1, 1]
+      Translation: [1.89770937, 0, -1.82052934]
+      Rotation: [0, -61.5461578, 0]
+      Scale: [0.999999702, 1, 0.999999702]
       Parent:
         guid: ""
     Components:

@@ -159,6 +159,8 @@ struct Animation
 {
     float duration = 0.0f;
     float ticks_per_second = 0.0f;
+    float current_time = 0.0f;
+    glm::vec3 cached_root_offset = glm::vec3(0.0f);
     std::vector<Bone> bones = {};
     AssimpNodeData root_node = {};
     std::map<std::string, BoneInfo> bone_info_map = {};
