@@ -112,7 +112,10 @@ struct Bone
 
         auto const p0_index = get_position_index(animation_time);
         auto const p1_index = p0_index + 1;
-        glm::vec3 const final_position = glm::mix(positions[p0_index].position, positions[p1_index].position, 1.0f);
+        glm::vec3 const final_position =
+            glm::mix(positions[p0_index].position, positions[p1_index].position,
+                     get_scale_factor(positions[p0_index].time_stamp, positions[p1_index].time_stamp, animation_time));
+
         return glm::translate(glm::mat4(1.0f), final_position);
     }
 
@@ -126,20 +129,20 @@ struct Bone
 
         auto const p0_index = get_rotation_index(animation_time);
         auto const p1_index = p0_index + 1;
-        glm::quat final_rotation = glm::slerp(rotations[p0_index].orientation, rotations[p1_index].orientation, 1.0f);
+        glm::quat final_rotation =
+            glm::slerp(rotations[p0_index].orientation, rotations[p1_index].orientation,
+                       get_scale_factor(rotations[p0_index].time_stamp, rotations[p1_index].time_stamp, animation_time));
         final_rotation = glm::normalize(final_rotation);
         return glm::toMat4(final_rotation);
     }
 
-    glm::mat4 test_position()
+    float get_scale_factor(float last_time_stamp, float next_time_stamp, float animation_time)
     {
-        return glm::translate(glm::mat4(1.0f), positions[0].position);
-    }
-
-    glm::mat4 test_rotation()
-    {
-        auto const rotation = glm::normalize(rotations[0].orientation);
-        return glm::toMat4(rotation);
+        float scaleFactor = 0.0f;
+        float const mid_way_length = animation_time - last_time_stamp;
+        float const frames_diff = next_time_stamp - last_time_stamp;
+        scaleFactor = mid_way_length / frames_diff;
+        return scaleFactor;
     }
 };
 
