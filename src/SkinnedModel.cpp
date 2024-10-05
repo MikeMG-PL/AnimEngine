@@ -405,28 +405,39 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
     if (Bone* bone = find_bone(node_name))
     {
-        bone->update(AnimationEngine::get_instance()->get_current_time());
-
+        glm::vec3 root_offset = glm::vec3(0.0f);
+        bool wrap_extracted_motion = false;
         if (bone->id == 0)
         {
             glm::vec3 scale = glm::vec3(0.0f);
-            glm::vec3 position = glm::vec3(0.0f);
             glm::vec3 skew = glm::vec3(0.0f);
             glm::vec4 perspective = glm::vec4(0.0f);
-            glm::quat rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+            glm::quat root_rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
-            // Extract matrix components
-            decompose(bone->local_transform, scale, rotation, position, skew, perspective);
+            decompose(bone->local_transform, scale, root_rotation, root_offset, skew, perspective);
+
+            // Get the entity's current rotation in world/space (quaternion)
+            glm::quat model_rotation = entity->transform->get_rotation();
+
+            // Rotate the local position by the entity's model/world rotation
+            glm::vec3 rotated_position = model_rotation * (root_offset - animation.cached_root_offset);
 
             // Move root back to model (0,0,0)
-            bone->local_transform = glm::translate(bone->local_transform, -position);
+            bone->local_transform = translate(glm::mat4(1.0f), glm::vec3(0.0f));
 
             // Offset entity ("should be capsule controller") by offset that root should traverse
-            glm::vec3 new_entity_position = position;
-            entity->transform->set_position(new_entity_position);
+            glm::vec3 final_position = entity->transform->get_position() + rotated_position;
+            entity->transform->set_position(final_position);
+
+            animation.cached_root_offset = root_offset;
         }
 
         node_transform = bone->local_transform;
+        animation.current_time = fmod(animation.current_time, animation.duration);
+        bone->update(animation.current_time);
+
+        // if (wrap_extracted_motion)
+        // entity->transform->set_position(position + entity->transform->get_position());
     }
 
     glm::mat4 const global_transformation = parent_transform * node_transform;
