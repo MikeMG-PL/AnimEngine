@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AK/Math.h"
+#include "Globals.h"
 #include "assimp/Importer.hpp"
 #include "assimp/anim.h"
 #include "glm/gtx/quaternion.hpp"
