@@ -440,7 +440,14 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
                 animation.wrap_extracted_motion = true;
                 animation.current_time = 0.0f;
             }
+
+            Debug::log(std::to_string(final_position.x) + ", " + std::to_string(final_position.y) + ", "
+                       + std::to_string(final_position.z));
         }
+
+        // For safety
+        if (animation.current_time > animation.duration)
+            animation.current_time = 0.0f;
 
         node_transform = bone->local_transform;
         bone->update(animation.current_time);
