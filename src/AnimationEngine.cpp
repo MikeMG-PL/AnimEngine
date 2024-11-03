@@ -20,7 +20,7 @@ void AnimationEngine::update_animations()
     for (auto const& skinned_model : m_skinned_models)
     {
         skinned_model->animation.current_time +=
-            skinned_model->animation.ticks_per_second * delta_time * 1.5f; // you can apply play_rate here
+            skinned_model->animation.ticks_per_second * delta_time * 1.0f; // you can apply play_rate here
         // skinned_model->animation.current_time = fmod(skinned_model->animation.current_time, skinned_model->animation.duration);
 
         skinned_model->calculate_bone_transform(&skinned_model->animation.root_node, glm::mat4(1.0f));

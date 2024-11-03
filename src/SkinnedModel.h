@@ -61,7 +61,7 @@ public:
     void calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform);
 
     std::string model_path = "./res/models/enemy/enemy.gltf";
-    std::string anim_path = "./res/models/enemy/AS_Walking.gltf";
+    std::string anim_path = "./res/anims/conv77_12_Anim.gltf";
 
     NON_SERIALIZED
     std::vector<glm::mat4> skinning_matrices = {};
