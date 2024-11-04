@@ -197,6 +197,10 @@ void SkinnedModel::reset()
 {
     m_meshes.clear();
     m_loaded_textures.clear();
+    animation = {};
+    m_scene = nullptr;
+    m_bone_counter = 0;
+    m_directory = "";
 }
 
 void SkinnedModel::reprepare()
