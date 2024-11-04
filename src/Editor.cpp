@@ -268,11 +268,24 @@ void Editor::draw_content_browser(std::shared_ptr<EditorWindow> const& window)
 
     draw_scene_save();
 
+    if (ImGui::CollapsingHeader("Animations"))
+    {
+        for (auto const& asset : m_assets)
+        {
+            if (asset.type == AssetType::Animation && asset.type != AssetType::Scene && asset.type != AssetType::Prefab
+                && ImGui::Selectable(asset.path.c_str()))
+            {
+                ImGui::SetClipboardText(asset.path.c_str());
+            }
+        }
+    }
+
     if (ImGui::CollapsingHeader("Models"))
     {
         for (auto const& asset : m_assets)
         {
-            if (asset.type != AssetType::Scene && asset.type != AssetType::Prefab && ImGui::Selectable(asset.path.c_str()))
+            if (asset.type == AssetType::Model && asset.type != AssetType::Scene && asset.type != AssetType::Prefab
+                && ImGui::Selectable(asset.path.c_str()))
             {
                 ImGui::SetClipboardText(asset.path.c_str());
             }
@@ -861,7 +874,15 @@ void Editor::load_assets()
 {
     m_assets.clear();
 
-    for (auto const& entry : std::filesystem::recursive_directory_iterator(m_content_path))
+    for (auto const& entry : std::filesystem::recursive_directory_iterator(m_animations_path))
+    {
+        if (std::ranges::find(m_known_animation_formats, entry.path().extension().string()) != m_known_animation_formats.end())
+        {
+            m_assets.emplace_back(entry.path().string(), AssetType::Animation);
+        }
+    }
+
+    for (auto const& entry : std::filesystem::recursive_directory_iterator(m_models_path))
     {
         if (std::ranges::find(m_known_model_formats, entry.path().extension().string()) != m_known_model_formats.end())
         {
