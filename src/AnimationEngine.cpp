@@ -35,6 +35,31 @@ void AnimationEngine::update_animations()
     }
 }
 
+void AnimationEngine::draw_animation_preview() const
+{
+    auto const renderer_dx11 = RendererDX11::get_instance_dx11()->get_instance_dx11();
+
+    if (renderer_dx11 == nullptr)
+        return;
+
+    for (auto const& skinned_model : m_skinned_models)
+    {
+        // There's no time updating in preview. You need to press play.
+
+        // This is for convenience, my dataset animations have T-pose in 0 frame, so this makes the preview draw one of the early frames.
+        if (AK::Math::are_nearly_equal(skinned_model->animation.current_time, 0.0f) && skinned_model->animation.duration > 500.0f)
+        {
+            skinned_model->animation.current_time = 500.0f;
+        }
+
+        skinned_model->calculate_bone_transform(&skinned_model->animation.root_node, glm::mat4(1.0f));
+        if (!skinned_model->skinning_matrices.empty())
+        {
+            renderer_dx11->set_skinning_buffer(skinned_model, skinned_model->get_skinning_matrices());
+        }
+    }
+}
+
 void AnimationEngine::register_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model)
 {
     m_skinned_models.emplace_back(skinned_model);

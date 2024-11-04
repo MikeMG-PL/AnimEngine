@@ -14,6 +14,7 @@ public:
 
     void initialize();
     void update_animations();
+    void draw_animation_preview() const;
     void register_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
     void unregister_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
 

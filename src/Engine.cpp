@@ -188,6 +188,10 @@ void Engine::run()
             AnimationEngine::get_instance()->update_animations();
             MainScene::get_instance()->run_frame();
         }
+        else
+        {
+            AnimationEngine::get_instance()->draw_animation_preview();
+        }
 
         Renderer::get_instance()->render();
 
