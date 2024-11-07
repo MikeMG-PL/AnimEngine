@@ -152,7 +152,7 @@ void Editor::draw()
             draw_inspector(window);
             break;
         case EditorWindowType::Custom:
-            std::cout << "Custom Editor windows are currently not supported.\n";
+            draw_custom_editor(window);
             break;
         }
     }
@@ -649,6 +649,27 @@ void Editor::draw_scene_hierarchy(std::shared_ptr<EditorWindow> const& window)
     ImGui::End();
 }
 
+void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
+{
+    bool is_still_open = true;
+    bool const open = ImGui::Begin(window->get_name().c_str(), &is_still_open, window->flags);
+
+    if (!is_still_open)
+    {
+        remove_window(window);
+        ImGui::End();
+        return;
+    }
+
+    if (!open)
+    {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::End();
+}
+
 void Editor::draw_entity_recursively(std::shared_ptr<Transform> const& transform)
 {
     if (transform == nullptr || transform->entity.expired())
@@ -847,6 +868,17 @@ void Editor::draw_window_menu_bar(std::shared_ptr<EditorWindow> const& window)
                     add_debug_window();
                 }
 
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Add custom editor"))
+            {
+                // TODO: Somehow read enums or other entries and populate this automatically, EHT maybe?
+                if (ImGui::MenuItem("Motion Matching"))
+                {
+                    auto custom_window =
+                        std::make_shared<EditorWindow>(m_last_window_id, ImGuiWindowFlags_MenuBar, EditorWindowType::Custom);
+                    m_editor_windows.emplace_back(custom_window);
+                }
                 ImGui::EndMenu();
             }
 
@@ -1711,12 +1743,27 @@ void Editor::add_scene_hierarchy()
     m_editor_windows.emplace_back(hierarchy_window);
 }
 
-void Editor::remove_window(std::shared_ptr<EditorWindow> const& window)
+void Editor::add_custom_window(CustomEditorType custom_editor_type)
+{
+    auto custom_window =
+        std::make_shared<EditorWindow>(m_last_window_id, ImGuiWindowFlags_MenuBar, EditorWindowType::Custom, custom_editor_type);
+    m_editor_windows.emplace_back(custom_window);
+    m_drawn_custom_editors.emplace_back(custom_editor_type);
+}
+
+void Editor::remove_window(std::shared_ptr<EditorWindow> const& window, CustomEditorType custom_editor_type)
 {
     auto const it = std::ranges::find(m_editor_windows, window);
 
     if (it != m_editor_windows.end())
         m_editor_windows.erase(it);
+
+    if (window->type == EditorWindowType::Custom)
+    {
+        auto const it_custom = std::ranges::find(m_drawn_custom_editors, custom_editor_type);
+        if (it_custom != m_drawn_custom_editors.end())
+            m_drawn_custom_editors.erase(it_custom);
+    }
 }
 
 bool Editor::are_debug_drawings_enabled() const

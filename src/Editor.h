@@ -31,6 +31,12 @@ enum class EditorWindowType
     Hierarchy,
 };
 
+enum class CustomEditorType
+{
+    None,
+    MotionMatching
+};
+
 struct LockData
 {
     std::weak_ptr<Entity> selected_entity;
@@ -39,7 +45,8 @@ struct LockData
 class EditorWindow
 {
 public:
-    EditorWindow(i32& last_id, i32 const flags, EditorWindowType const type) : type(type)
+    EditorWindow(i32& last_id, i32 const flags, EditorWindowType const type, CustomEditorType custom_type = CustomEditorType::None)
+        : type(type), m_custom_editor_type(custom_type)
     {
         m_id = last_id + 1;
         last_id = m_id;
@@ -115,7 +122,7 @@ private:
     i32 m_id = 0;
     std::string m_name = {};
     bool m_is_locked = false;
-
+    CustomEditorType m_custom_editor_type = CustomEditorType::None;
     std::weak_ptr<Entity> m_selected_entity = {};
 };
 
@@ -180,13 +187,15 @@ private:
     void add_game();
     void add_inspector();
     void add_scene_hierarchy();
-    void remove_window(std::shared_ptr<EditorWindow> const& window);
+    void add_custom_window(CustomEditorType custom_editor_type = CustomEditorType::None);
+    void remove_window(std::shared_ptr<EditorWindow> const& window, CustomEditorType custom_editor_type = CustomEditorType::None);
 
     void draw_debug_window(std::shared_ptr<EditorWindow> const& window);
     void draw_content_browser(std::shared_ptr<EditorWindow> const& window);
     void draw_game(std::shared_ptr<EditorWindow> const& window);
     void draw_inspector(std::shared_ptr<EditorWindow> const& window);
     void draw_scene_hierarchy(std::shared_ptr<EditorWindow> const& window);
+    void draw_custom_editor(std::shared_ptr<EditorWindow> const& window);
     void draw_scene_save();
 
     void draw_entity_recursively(std::shared_ptr<Transform> const& transform);
@@ -245,6 +254,7 @@ private:
     std::shared_ptr<Scene> m_open_scene;
 
     std::vector<std::shared_ptr<EditorWindow>> m_editor_windows = {};
+    std::vector<CustomEditorType> m_drawn_custom_editors = {};
     i32 m_last_window_id = 0;
 
     bool m_polygon_mode_active = false;
