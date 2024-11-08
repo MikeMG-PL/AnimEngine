@@ -31,15 +31,6 @@ enum class EditorWindowType
     Hierarchy,
 };
 
-enum class CustomEditorType
-{
-    None,
-    MotionMatching,
-
-    ////////////////////
-    CustomEditorType_MAX
-};
-
 struct LockData
 {
     std::weak_ptr<Entity> selected_entity;
@@ -48,8 +39,8 @@ struct LockData
 class EditorWindow
 {
 public:
-    EditorWindow(i32& last_id, i32 const flags, EditorWindowType const type, CustomEditorType custom_type = CustomEditorType::None)
-        : type(type), custom_editor_type(custom_type)
+    EditorWindow(i32& last_id, i32 const flags, EditorWindowType const type, u32 custom_type_id = 0)
+        : type(type), custom_editor_type(custom_type_id)
     {
         m_id = last_id + 1;
         last_id = m_id;
@@ -74,14 +65,14 @@ public:
             m_name = "Inspector##" + std::to_string(m_id);
             break;
         case EditorWindowType::Custom:
-            m_name = "Custom##" + std::to_string(m_id);
+            m_name = "Custom Editor##" + std::to_string(m_id);
             break;
         }
     }
 
     i32 flags = 0;
     EditorWindowType type = EditorWindowType::Custom;
-    CustomEditorType custom_editor_type = CustomEditorType::None;
+    u32 custom_editor_type = 0;
 
     [[nodiscard]] i32 get_id() const
     {
@@ -184,14 +175,13 @@ public:
 
 private:
     void switch_rendering_to_editor();
-
     void add_debug_window();
     void add_content_browser();
     void add_game();
     void add_inspector();
     void add_scene_hierarchy();
-    void add_custom_window(CustomEditorType custom_editor_type = CustomEditorType::None);
-    void remove_window(std::shared_ptr<EditorWindow> const& window, CustomEditorType custom_editor_type = CustomEditorType::None);
+    void add_custom_window(u32 custom_editor_type = 0);
+    void remove_window(std::shared_ptr<EditorWindow> const& window, u32 custom_editor_type = 0);
 
     void draw_debug_window(std::shared_ptr<EditorWindow> const& window);
     void draw_content_browser(std::shared_ptr<EditorWindow> const& window);
@@ -257,8 +247,11 @@ private:
     std::shared_ptr<Scene> m_open_scene;
 
     std::vector<std::shared_ptr<EditorWindow>> m_editor_windows = {};
-    std::vector<CustomEditorType> m_drawn_custom_editors = {};
     i32 m_last_window_id = 0;
+
+    // Add new custom editors here
+    std::vector<std::string> m_custom_editor_types = {"None", "Motion Matching"};
+    std::vector<u32> m_drawn_custom_editors = {};
 
     bool m_polygon_mode_active = false;
     bool m_always_newest_logs = false;
