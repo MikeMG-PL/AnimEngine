@@ -667,6 +667,20 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
         return;
     }
 
+    /// CUSTOM EDITOR CODE HERE
+
+    switch (window->custom_editor_type)
+    {
+    case CustomEditorType::MotionMatching:
+        window->set_name("Motion Matching");
+        break;
+
+    default:
+        break;
+    }
+
+    /// ---------------------------------
+
     ImGui::End();
 }
 
@@ -873,12 +887,17 @@ void Editor::draw_window_menu_bar(std::shared_ptr<EditorWindow> const& window)
             if (ImGui::BeginMenu("Add custom editor"))
             {
                 // TODO: Somehow read enums or other entries and populate this automatically, EHT maybe?
-                if (ImGui::MenuItem("Motion Matching"))
+
+                // Start with "1" to skip "None" window.
+                for (u32 i = 1; i < static_cast<u32>(CustomEditorType::CustomEditorType_MAX); i++)
                 {
-                    auto custom_window =
-                        std::make_shared<EditorWindow>(m_last_window_id, ImGuiWindowFlags_MenuBar, EditorWindowType::Custom);
-                    m_editor_windows.emplace_back(custom_window);
+                    std::string const label = "Custom Editor, ID: " + std::to_string(i);
+                    if (ImGui::MenuItem(label.c_str()))
+                    {
+                        add_custom_window(static_cast<CustomEditorType>(i));
+                    }
                 }
+
                 ImGui::EndMenu();
             }
 

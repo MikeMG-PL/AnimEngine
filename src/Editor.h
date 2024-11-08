@@ -34,7 +34,10 @@ enum class EditorWindowType
 enum class CustomEditorType
 {
     None,
-    MotionMatching
+    MotionMatching,
+
+    ////////////////////
+    CustomEditorType_MAX
 };
 
 struct LockData
@@ -46,7 +49,7 @@ class EditorWindow
 {
 public:
     EditorWindow(i32& last_id, i32 const flags, EditorWindowType const type, CustomEditorType custom_type = CustomEditorType::None)
-        : type(type), m_custom_editor_type(custom_type)
+        : type(type), custom_editor_type(custom_type)
     {
         m_id = last_id + 1;
         last_id = m_id;
@@ -78,6 +81,7 @@ public:
 
     i32 flags = 0;
     EditorWindowType type = EditorWindowType::Custom;
+    CustomEditorType custom_editor_type = CustomEditorType::None;
 
     [[nodiscard]] i32 get_id() const
     {
@@ -122,7 +126,6 @@ private:
     i32 m_id = 0;
     std::string m_name = {};
     bool m_is_locked = false;
-    CustomEditorType m_custom_editor_type = CustomEditorType::None;
     std::weak_ptr<Entity> m_selected_entity = {};
 };
 
