@@ -2892,3 +2892,44 @@ std::shared_ptr<Entity> SceneSerializer::load_prefab(std::string const& prefab_n
 
     return entity;
 }
+
+void SceneSerializer::save_custom_editors(std::vector<u32> const& vec)
+{
+    YAML::Emitter out;
+    out << YAML::BeginMap;
+    out << YAML::Key << "custom_editors_vector" << YAML::Value << YAML::BeginSeq;
+
+    for (auto const val : vec)
+        out << val;
+
+    out << YAML::EndSeq;
+    out << YAML::EndMap;
+
+    std::ofstream fout(m_custom_editors_file, std::ios::out | std::ios::trunc);
+    if (fout.is_open())
+    {
+        fout << out.c_str();
+        fout.close();
+    }
+    else
+    {
+        auto const message = "Failed to open file for writing: " + m_custom_editors_file;
+        Debug::log(message, DebugType::Error);
+        std::cout << message << std::endl;
+    }
+}
+
+void SceneSerializer::load_custom_editors(std::vector<u32>& vec)
+{
+    YAML::Node file = YAML::LoadFile(m_custom_editors_file);
+
+    if (file["custom_editors_vector"])
+    {
+        vec = file["custom_editors_vector"].as<std::vector<u32>>();
+    }
+    else
+    {
+        auto const message = "Failed to open file for reading: " + m_custom_editors_file;
+        Debug::log(message, DebugType::Error);
+    }
+}

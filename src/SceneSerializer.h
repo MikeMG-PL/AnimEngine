@@ -37,6 +37,8 @@ public:
 
     static void save_prefab(std::shared_ptr<Entity> const& entity, std::string const& prefab_name);
     static std::shared_ptr<Entity> load_prefab(std::string const& prefab_name);
+    static void save_custom_editors(std::vector<u32> const& vec);
+    static void load_custom_editors(std::vector<u32>& vec);
 
 private:
     static void serialize_entity(YAML::Emitter& out, std::shared_ptr<Entity> const& entity);
@@ -59,6 +61,7 @@ private:
 
     // FIXME: Duplication of paths here and in Editor
     inline static std::string m_prefab_path = "./res/prefabs/";
+    inline static std::string m_custom_editors_file = "custom_editors.txt";
 
     inline static std::shared_ptr<SceneSerializer> m_instance;
 };

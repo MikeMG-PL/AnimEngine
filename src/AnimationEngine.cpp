@@ -69,3 +69,7 @@ void AnimationEngine::unregister_skinned_model(std::shared_ptr<SkinnedModel> con
 {
     AK::swap_and_erase(m_skinned_models, skinned_model);
 }
+
+void AnimationEngine::populate_sample_database()
+{
+}

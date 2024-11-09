@@ -93,6 +93,14 @@ Editor::Editor(AK::Badge<Editor>)
     add_inspector();
     add_scene_hierarchy();
 
+    SceneSerializer::load_custom_editors(m_drawn_custom_editors);
+    for (u32 i = 0; i < m_drawn_custom_editors.size(); i++)
+    {
+        auto custom_window =
+            std::make_shared<EditorWindow>(m_last_window_id, ImGuiWindowFlags_MenuBar, EditorWindowType::Custom, m_drawn_custom_editors[i]);
+        m_editor_windows.emplace_back(custom_window);
+    }
+
     m_last_second = glfwGetTime();
 
     load_assets();
@@ -657,7 +665,7 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
 
     if (!is_still_open)
     {
-        remove_window(window);
+        remove_window(window, window->custom_editor_type);
         ImGui::End();
         return;
     }
@@ -672,12 +680,21 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
 
     switch (window->custom_editor_type)
     {
+    case 1: // Motion Matching
+
+        if (ImGui::Button("Populate Sample Database", ImVec2(-FLT_MIN, 20.0f)))
+        {
+            Debug::log("dupa");
+        }
+        ImGui::Text("This requires all the animations to be in res/anims directory.");
+
+        break;
 
     default:
         break;
     }
 
-    /// ---------------------------------
+    /// ------------------------
 
     ImGui::End();
 }
@@ -1762,14 +1779,11 @@ void Editor::add_scene_hierarchy()
 
 void Editor::add_custom_window(u32 custom_editor_type)
 {
-    // auto const it_custom = std::ranges::find(m_drawn_custom_editors, custom_editor_type);
-    // if (it_custom == m_drawn_custom_editors.end())
-    // {
     auto custom_window =
         std::make_shared<EditorWindow>(m_last_window_id, ImGuiWindowFlags_MenuBar, EditorWindowType::Custom, custom_editor_type);
     m_editor_windows.emplace_back(custom_window);
     m_drawn_custom_editors.emplace_back(custom_editor_type);
-    // }
+    SceneSerializer::save_custom_editors(m_drawn_custom_editors);
 }
 
 void Editor::remove_window(std::shared_ptr<EditorWindow> const& window, u32 custom_editor_type)
@@ -1777,13 +1791,18 @@ void Editor::remove_window(std::shared_ptr<EditorWindow> const& window, u32 cust
     auto const it = std::ranges::find(m_editor_windows, window);
 
     if (it != m_editor_windows.end())
+    {
         m_editor_windows.erase(it);
+    }
 
     if (window->type == EditorWindowType::Custom)
     {
         auto const it_custom = std::ranges::find(m_drawn_custom_editors, custom_editor_type);
         if (it_custom != m_drawn_custom_editors.end())
+        {
             m_drawn_custom_editors.erase(it_custom);
+            SceneSerializer::save_custom_editors(m_drawn_custom_editors);
+        }
     }
 }
 

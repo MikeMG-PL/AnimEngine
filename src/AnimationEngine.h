@@ -1,6 +1,6 @@
 #pragma once
 #include "RendererDX11.h"
-#include "Rig.h"
+#include "Sample.h"
 #include "SkinnedModel.h"
 
 #include <memory>
@@ -32,6 +32,8 @@ public:
     }
 
 private:
+    void populate_sample_database();
     inline static std::shared_ptr<AnimationEngine> m_instance;
     std::vector<std::shared_ptr<SkinnedModel>> m_skinned_models = {};
+    std::vector<Sample> m_sample_database = {};
 };
