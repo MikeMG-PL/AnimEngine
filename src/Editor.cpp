@@ -10,6 +10,8 @@
 #include <imgui_internal.h>
 #endif
 
+#include "AnimationEngine.h"
+
 #include <filesystem>
 #include <glm/gtc/type_ptr.inl>
 #include <glm/gtx/string_cast.hpp>
@@ -62,6 +64,7 @@
 #include "Input.h"
 #include "Light.h"
 #include "Model.h"
+#include "MotionMatching.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
 #include "Particle.h"
@@ -682,12 +685,27 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
     {
     case 1: // Motion Matching
 
+        if (AnimationEngine::get_instance()->m_motion_matching_settings.expired())
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 250, 0, 255));
+            ImGui::Text("Add Motion Matching prefab to the scene to start using motion matching.");
+            ImGui::PopStyleColor();
+            break;
+        }
+
+        if (AnimationEngine::get_instance()->m_handler_count > 1)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 250, 0, 255));
+            ImGui::Text("Multiple Motion Matching prefabs detected on the scene. Ensure there is only one.");
+            ImGui::PopStyleColor();
+            break;
+        }
+
         if (ImGui::Button("Populate Sample Database", ImVec2(-FLT_MIN, 20.0f)))
         {
-            Debug::log("dupa");
         }
         ImGui::Text("This requires all the animations to be in res/anims directory.");
-
+        ImGui::Spacing();
         break;
 
     default:

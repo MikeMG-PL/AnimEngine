@@ -1,8 +1,11 @@
 #include "AnimationEngine.h"
 
 #include "AK/AK.h"
+#include "Editor.h"
+#include "Entity.h"
 #include "Globals.h"
 #include "Rig.h"
+#include "SceneSerializer.h"
 
 void AnimationEngine::initialize()
 {
@@ -68,6 +71,16 @@ void AnimationEngine::register_skinned_model(std::shared_ptr<SkinnedModel> const
 void AnimationEngine::unregister_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model)
 {
     AK::swap_and_erase(m_skinned_models, skinned_model);
+}
+
+void AnimationEngine::register_motion_matching_handler(std::shared_ptr<MotionMatching>& handler)
+{
+    m_motion_matching_settings = handler;
+}
+
+void AnimationEngine::count_motion_matching_handlers(i8 delta)
+{
+    m_handler_count += delta;
 }
 
 void AnimationEngine::populate_sample_database()

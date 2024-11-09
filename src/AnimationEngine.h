@@ -1,6 +1,6 @@
 #pragma once
+#include "MotionMatching.h"
 #include "RendererDX11.h"
-#include "Sample.h"
 #include "SkinnedModel.h"
 
 #include <memory>
@@ -9,6 +9,7 @@
 class AnimationEngine
 {
 public:
+    friend Editor::Editor; // In order to have a global and centralized control over motion matching from the Motion Matching Custom Editor.
     AnimationEngine(AnimationEngine const&) = delete;
     void operator=(AnimationEngine const&) = delete;
 
@@ -17,6 +18,8 @@ public:
     void draw_animation_preview() const;
     void register_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
     void unregister_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
+    void register_motion_matching_handler(std::shared_ptr<MotionMatching>& handler);
+    void count_motion_matching_handlers(i8 delta);
 
     static std::shared_ptr<AnimationEngine> get_instance()
     {
@@ -35,5 +38,6 @@ private:
     void populate_sample_database();
     inline static std::shared_ptr<AnimationEngine> m_instance;
     std::vector<std::shared_ptr<SkinnedModel>> m_skinned_models = {};
-    std::vector<Sample> m_sample_database = {};
+    std::weak_ptr<MotionMatching> m_motion_matching_settings = {};
+    u8 m_handler_count = 0;
 };

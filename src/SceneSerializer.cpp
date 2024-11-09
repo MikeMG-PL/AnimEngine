@@ -51,6 +51,7 @@
 #include "Game/Thanks.h"
 #include "Light.h"
 #include "Model.h"
+#include "MotionMatching.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
 #include "Particle.h"
@@ -405,6 +406,15 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
         out << YAML::Key << "m_pcf_num_samples" << YAML::Value << light->m_pcf_num_samples;
         out << YAML::Key << "m_light_world_size" << YAML::Value << light->m_light_world_size;
         out << YAML::Key << "m_light_frustum_width" << YAML::Value << light->m_light_frustum_width;
+        out << YAML::EndMap;
+    }
+    else if (auto const motionmatching = std::dynamic_pointer_cast<class MotionMatching>(component); motionmatching != nullptr)
+    {
+        out << YAML::BeginMap;
+        out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingComponent";
+        out << YAML::Key << "guid" << YAML::Value << motionmatching->guid;
+        out << YAML::Key << "custom_name" << YAML::Value << motionmatching->custom_name;
+        out << YAML::Key << "sample_rate" << YAML::Value << motionmatching->sample_rate;
         out << YAML::EndMap;
     }
     else if (auto const nowprompttrigger = std::dynamic_pointer_cast<class NowPromptTrigger>(component); nowprompttrigger != nullptr)
@@ -1642,6 +1652,27 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
             if (component["m_light_frustum_width"].IsDefined())
             {
                 deserialized_component->m_light_frustum_width = component["m_light_frustum_width"].as<float>();
+            }
+            deserialized_entity->add_component(deserialized_component);
+            deserialized_component->reprepare();
+        }
+    }
+    else if (component_name == "MotionMatchingComponent")
+    {
+        if (first_pass)
+        {
+            auto const deserialized_component = MotionMatching::create();
+            deserialized_component->guid = component["guid"].as<std::string>();
+            deserialized_component->custom_name = component["custom_name"].as<std::string>();
+            deserialized_pool.emplace_back(deserialized_component);
+        }
+        else
+        {
+            auto const deserialized_component =
+                std::dynamic_pointer_cast<class MotionMatching>(get_from_pool(component["guid"].as<std::string>()));
+            if (component["sample_rate"].IsDefined())
+            {
+                deserialized_component->sample_rate = component["sample_rate"].as<float>();
             }
             deserialized_entity->add_component(deserialized_component);
             deserialized_component->reprepare();
