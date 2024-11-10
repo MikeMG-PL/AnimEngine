@@ -252,6 +252,56 @@ requires std::is_base_of_v<Component, T> struct convert<std::weak_ptr<T>>
 };
 
 template<>
+struct convert<Feature>
+{
+    static Node encode(Feature const& rhs)
+    {
+        Node node;
+        node.push_back(rhs.position);
+        node.push_back(rhs.facing_direction);
+        return node;
+    }
+
+    static bool decode(Node const& node, Feature& rhs)
+    {
+        if (!node.IsSequence() || node.size() != 2)
+            return false;
+
+        rhs.position = node[0].as<glm::vec3>();
+        rhs.facing_direction = node[1].as<glm::vec3>();
+        return true;
+    }
+};
+
+template<>
+struct convert<Sample>
+{
+    static Node encode(Sample const& rhs)
+    {
+        Node node;
+        node.push_back(rhs.past_features);
+        node.push_back(rhs.future_features);
+        node.push_back(rhs.current_feature);
+        node.push_back(rhs.clip_id);
+        node.push_back(rhs.clip_local_time);
+        return node;
+    }
+
+    static bool decode(Node const& node, Sample& rhs)
+    {
+        if (!node.IsSequence() || node.size() != 5)
+            return false;
+
+        rhs.past_features = node[0].as<std::vector<Feature>>();
+        rhs.future_features = node[1].as<std::vector<Feature>>();
+        rhs.current_feature = node[2].as<Feature>();
+        rhs.clip_id = node[3].as<u32>();
+        rhs.clip_local_time = node[4].as<float>();
+        return true;
+    }
+};
+
+template<>
 struct convert<DXWave>
 {
     static Node encode(DXWave const& rhs)
@@ -700,6 +750,21 @@ inline Emitter& operator<<(YAML::Emitter& out, std::shared_ptr<Material> const& 
 
     out << YAML::EndMap; // Material
 
+    return out;
+}
+
+inline Emitter& operator<<(YAML::Emitter& out, Feature const& feature)
+{
+    out << YAML::Flow;
+    out << YAML::BeginSeq << feature.position << feature.facing_direction << YAML::EndSeq;
+    return out;
+}
+
+inline Emitter& operator<<(YAML::Emitter& out, Sample const& sample)
+{
+    out << YAML::Flow;
+    out << YAML::BeginSeq << sample.past_features << sample.future_features << sample.current_feature << sample.clip_id
+        << sample.clip_local_time << YAML::EndSeq;
     return out;
 }
 

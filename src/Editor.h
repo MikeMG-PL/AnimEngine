@@ -162,6 +162,7 @@ public:
     glm::vec2 get_game_size() const;
     glm::vec2 get_game_position() const;
     bool is_rendering_to_editor() const;
+    [[nodiscard]] std::shared_ptr<std::vector<Asset>> get_assets(AssetType type = AssetType::Unknown) const;
 
     void register_debug_drawing(std::shared_ptr<DebugDrawing> const& debug_drawing);
     void unregister_debug_drawing(std::shared_ptr<DebugDrawing> const& debug_drawing);

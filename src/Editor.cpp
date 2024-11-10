@@ -684,7 +684,8 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
     switch (window->custom_editor_type)
     {
     case 1: // Motion Matching
-
+    {
+        // Check if there is one and only one motion matching handler.
         if (AnimationEngine::get_instance()->m_motion_matching_settings.expired())
         {
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 250, 0, 255));
@@ -700,13 +701,73 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
             ImGui::PopStyleColor();
             break;
         }
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        std::shared_ptr<MotionMatching> const motion_matching_handler = AnimationEngine::get_instance()->m_motion_matching_settings.lock();
 
         if (ImGui::Button("Populate Sample Database", ImVec2(-FLT_MIN, 20.0f)))
         {
+            motion_matching_handler->populate_sample_database();
+            ImGui::Text("Populating... patience.");
         }
+
         ImGui::Text("This requires all the animations to be in res/anims directory.");
         ImGui::Spacing();
+
+        ImGui::InputFloat("Sample rate", &motion_matching_handler->sample_rate, 0.1f);
+        ImGui::InputText("Skinned model path (RIG)", &motion_matching_handler->skinned_model_path);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(144, 213, 255, 255));
+        ImGui::Text("Motion Matching Logs");
+        ImGui::PopStyleColor();
+        std::string const log_count = "Logs " + std::to_string(motion_matching_handler->debug_messages.size());
+        ImGui::Text(log_count.c_str());
+        if (ImGui::Button("Clear log"))
+        {
+            motion_matching_handler->clear_log();
+        }
+        ImGui::SameLine(0, 25.0f);
+        ImGui::Checkbox("Show newest logs", &motion_matching_handler->always_latest_logs);
+        if (ImGui::BeginListBox("Motion Matching Logs", ImVec2(-FLT_MIN, 0.0f)))
+        {
+            ImGuiListClipper clipper;
+            clipper.Begin(motion_matching_handler->debug_messages.size());
+            while (clipper.Step())
+            {
+                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+                {
+                    switch (motion_matching_handler->debug_messages[i].type)
+                    {
+                    case DebugType::Log:
+                        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 255));
+                        break;
+                    case DebugType::Warning:
+                        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 250, 0, 255));
+                        break;
+                    case DebugType::Error:
+                        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 55, 0, 255));
+                        break;
+                    default:
+                        std::unreachable();
+                    }
+
+                    ImGui::Text(motion_matching_handler->debug_messages[i].text.c_str());
+                    ImGui::PopStyleColor();
+                }
+            }
+
+            if (motion_matching_handler->always_latest_logs)
+                ImGui::SetScrollHereY(1.0f); // Scroll to bottom so the latest logs are always shown
+
+            ImGui::EndListBox();
+        }
+
         break;
+    }
 
     default:
         break;
@@ -1341,6 +1402,16 @@ glm::vec2 Editor::get_game_position() const
 bool Editor::is_rendering_to_editor() const
 {
     return m_rendering_to_editor;
+}
+
+std::shared_ptr<std::vector<Asset>> Editor::get_assets(AssetType type) const
+{
+    if (type == AssetType::Unknown)
+        return std::make_shared<std::vector<Asset>>(m_assets);
+
+    auto result = std::make_shared<std::vector<Asset>>();
+    std::ranges::copy_if(m_assets, std::back_inserter(*result), [type](Asset const& s) { return s.type == type; });
+    return result;
 }
 
 void Editor::register_debug_drawing(std::shared_ptr<DebugDrawing> const& debug_drawing)

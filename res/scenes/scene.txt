@@ -74,7 +74,7 @@ Entities:
     guid: 8bb7cd92191c071967b21ee84b41d97fd384d68e3bdcc0b991621c893cf44487
     Name: SKM
     TransformComponent:
-      Translation: [0.895675898, -6.54196768e-08, -1.65420938]
+      Translation: [0.486628056, -7.26987608e-08, -2.13376212]
       Rotation: [0, -61.5461578, 0]
       Scale: [0.999999702, 1, 0.999999702]
       Parent:
@@ -108,4 +108,5 @@ Entities:
       - ComponentName: MotionMatchingComponent
         guid: de653c352d1a6131a7b4a289847b522ef627b75c7a50412d5b1201da303c1cde
         custom_name: ""
-        sample_rate: 0.200000003
+        skinned_model_path: ./res/models/enemy/enemy.gltf
+        sample_rate: 0.200000018

@@ -35,7 +35,6 @@ public:
     }
 
 private:
-    void populate_sample_database();
     inline static std::shared_ptr<AnimationEngine> m_instance;
     std::vector<std::shared_ptr<SkinnedModel>> m_skinned_models = {};
     std::weak_ptr<MotionMatching> m_motion_matching_settings = {};

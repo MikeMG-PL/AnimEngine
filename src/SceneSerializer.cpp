@@ -414,7 +414,9 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
         out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingComponent";
         out << YAML::Key << "guid" << YAML::Value << motionmatching->guid;
         out << YAML::Key << "custom_name" << YAML::Value << motionmatching->custom_name;
+        out << YAML::Key << "skinned_model_path" << YAML::Value << motionmatching->skinned_model_path;
         out << YAML::Key << "sample_rate" << YAML::Value << motionmatching->sample_rate;
+        out << YAML::Key << "always_latest_logs" << YAML::Value << motionmatching->always_latest_logs;
         out << YAML::EndMap;
     }
     else if (auto const nowprompttrigger = std::dynamic_pointer_cast<class NowPromptTrigger>(component); nowprompttrigger != nullptr)
@@ -1670,9 +1672,17 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
         {
             auto const deserialized_component =
                 std::dynamic_pointer_cast<class MotionMatching>(get_from_pool(component["guid"].as<std::string>()));
+            if (component["skinned_model_path"].IsDefined())
+            {
+                deserialized_component->skinned_model_path = component["skinned_model_path"].as<std::string>();
+            }
             if (component["sample_rate"].IsDefined())
             {
                 deserialized_component->sample_rate = component["sample_rate"].as<float>();
+            }
+            if (component["always_latest_logs"].IsDefined())
+            {
+                deserialized_component->always_latest_logs = component["always_latest_logs"].as<bool>();
             }
             deserialized_entity->add_component(deserialized_component);
             deserialized_component->reprepare();

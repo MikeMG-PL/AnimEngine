@@ -82,7 +82,3 @@ void AnimationEngine::count_motion_matching_handlers(i8 delta)
 {
     m_handler_count += delta;
 }
-
-void AnimationEngine::populate_sample_database()
-{
-}
