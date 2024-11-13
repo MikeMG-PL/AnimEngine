@@ -50,6 +50,11 @@ void Drawable::set_rasterizer_draw_type(RasterizerDrawType const new_draw_mode)
     m_rasterizer_draw_type = new_draw_mode;
 }
 
+std::shared_ptr<std::vector<glm::mat4>> Drawable::get_skinning_matrices() const
+{
+    return std::make_shared<std::vector<glm::mat4>>(m_skinning_matrices);
+}
+
 void Drawable::initialize()
 {
     Renderer::get_instance()->register_drawable(std::static_pointer_cast<Drawable>(shared_from_this()));

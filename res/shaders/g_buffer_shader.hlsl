@@ -1,6 +1,6 @@
 cbuffer skinning_buffer : register(b4)
 {
-    float4x4 bones[512];
+    float4x4 bones[128];
 }
 
 struct VS_Input
@@ -76,7 +76,7 @@ VS_Output vs_main(VS_Input input)
         {
             if(input.skin_indices[i] >= 0)
             {
-                float4x4 bone = bones[input.skin_indices[i]];
+                float4x4 bone = bones[input.skin_indices[i]]; // 128 bones
                 float weight = input.skin_weights[i];
                 pos_skinned += mul(mul(bone, input_pos_4), weight);            // posSkinned+=(bone*pos)*weight;
                 norm_skinned += mul(mul(bone, input_norm_4), weight);           // norm_skinned+=(bone*norm)*weight;

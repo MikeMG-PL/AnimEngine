@@ -147,7 +147,7 @@ void RendererGL::update_material(std::shared_ptr<Material> const& material) cons
 }
 
 void RendererGL::update_object(std::shared_ptr<Drawable> const& drawable, std::shared_ptr<Material> const& material,
-                               glm::mat4 const& projection_view, glm::mat4 const* bones) const
+                               glm::mat4 const& projection_view, std::shared_ptr<std::vector<glm::mat4>> const& bones) const
 {
     if (material->needs_view_model)
         material->shader->set_mat4("VM", Camera::get_main_camera()->get_view_matrix() * drawable->entity->transform->get_model_matrix());

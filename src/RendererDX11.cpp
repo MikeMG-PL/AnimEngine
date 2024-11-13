@@ -85,6 +85,18 @@ std::shared_ptr<RendererDX11> RendererDX11::create()
 
     assert(SUCCEEDED(hr));
 
+    D3D11_BUFFER_DESC skinning_id_desc = {};
+    skinning_id_desc.Usage = D3D11_USAGE_DYNAMIC;
+    skinning_id_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    skinning_id_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    skinning_id_desc.MiscFlags = 0;
+    skinning_id_desc.ByteWidth = static_cast<UINT>(sizeof(SkinningIDBuffer) + (16 - (sizeof(SkinningIDBuffer) % 16)));
+    skinning_id_desc.StructureByteStride = 0;
+
+    hr = renderer->get_device()->CreateBuffer(&skinning_id_desc, nullptr, &renderer->m_constant_buffer_skinning_id);
+
+    assert(SUCCEEDED(hr));
+
     glfwSetWindowSizeCallback(Engine::window->get_glfw_window(), on_window_resize);
 
     D3D11_BUFFER_DESC light_buffer_desc = {};
@@ -257,7 +269,7 @@ void RendererDX11::present() const
     g_pSwapChain->Present(vsync_enabled, 0);
 }
 
-void RendererDX11::render_geometry_pass(glm::mat4 const& projection_view) const
+void RendererDX11::render_geometry_pass(glm::mat4 const& projection_view, glm::mat4 const* bones) const
 {
     std::array constexpr blend_factor = {0.0f, 0.0f, 0.0f, 0.0f};
     get_device_context()->OMSetBlendState(m_deferred_blend_state, blend_factor.data(), 0xffffffff);
@@ -597,7 +609,7 @@ void RendererDX11::update_material(std::shared_ptr<Material> const& material) co
 }
 
 void RendererDX11::update_object(std::shared_ptr<Drawable> const& drawable, std::shared_ptr<Material> const& material,
-                                 glm::mat4 const& projection_view, glm::mat4 const* bones) const
+                                 glm::mat4 const& projection_view, std::shared_ptr<std::vector<glm::mat4>> const& bones) const
 {
     ConstantBufferPerObject data = {};
     glm::mat4 const model = drawable->entity->transform->get_model_matrix();
@@ -616,7 +628,10 @@ void RendererDX11::update_object(std::shared_ptr<Drawable> const& drawable, std:
     get_device_context()->VSSetConstantBuffers(0, 1, &m_constant_buffer_per_object);
     get_device_context()->PSSetConstantBuffers(10, 1, &m_constant_buffer_per_object);
     set_particle_buffer(drawable, material);
-    // set_skinning_buffer(bones);
+
+    if (bones != nullptr)
+        set_skinning_buffer(drawable, bones->data());
+
     set_light_buffer();
     set_camera_position_buffer(drawable);
 }
@@ -808,11 +823,11 @@ void RendererDX11::set_skinning_buffer(std::shared_ptr<Drawable> const& drawable
     if (!drawable->is_skinned_model())
         return;
 
-    SkinningBuffer skinning_data = {};
+    SkinningBuffer skinning_buffer = {};
 
     for (u16 i = 0; i < SKINNING_BUFFER_SIZE; i++)
     {
-        skinning_data.bones[i] = bones[i];
+        skinning_buffer.bones[i] = bones[i];
     }
 
     D3D11_MAPPED_SUBRESOURCE skinning_mapped_resource = {};
@@ -820,7 +835,34 @@ void RendererDX11::set_skinning_buffer(std::shared_ptr<Drawable> const& drawable
                                                                       &skinning_mapped_resource);
     assert(SUCCEEDED(hr));
 
-    CopyMemory(skinning_mapped_resource.pData, &skinning_data, sizeof(SkinningBuffer));
+    CopyMemory(skinning_mapped_resource.pData, &skinning_buffer, sizeof(SkinningBuffer));
+
+    get_instance_dx11()->get_device_context()->Unmap(m_constant_buffer_skinning, 0);
+    get_instance_dx11()->get_device_context()->VSSetConstantBuffers(4, 1, &m_constant_buffer_skinning);
+}
+
+void RendererDX11::set_skinning_id_to_shader(SkinningIDBuffer const& skinning_id_buffer) const
+{
+    // Send skinning ID to shader
+    D3D11_MAPPED_SUBRESOURCE skinning_id_mapped_resource = {};
+    HRESULT const hr = get_instance_dx11()->get_device_context()->Map(m_constant_buffer_skinning_id, 0, D3D11_MAP_WRITE_DISCARD, 0,
+                                                                      &skinning_id_mapped_resource);
+    assert(SUCCEEDED(hr));
+
+    CopyMemory(skinning_id_mapped_resource.pData, &skinning_id_buffer, sizeof(SkinningIDBuffer));
+
+    get_instance_dx11()->get_device_context()->Unmap(m_constant_buffer_skinning_id, 0);
+    get_instance_dx11()->get_device_context()->VSSetConstantBuffers(5, 1, &m_constant_buffer_skinning_id);
+}
+
+void RendererDX11::send_skinning_to_shader(SkinningBuffer const& skinning_buffer)
+{
+    D3D11_MAPPED_SUBRESOURCE skinning_mapped_resource = {};
+    HRESULT const hr = get_instance_dx11()->get_device_context()->Map(m_constant_buffer_skinning, 0, D3D11_MAP_WRITE_DISCARD, 0,
+                                                                      &skinning_mapped_resource);
+    assert(SUCCEEDED(hr));
+
+    CopyMemory(skinning_mapped_resource.pData, &skinning_buffer, sizeof(SkinningBuffer));
 
     get_instance_dx11()->get_device_context()->Unmap(m_constant_buffer_skinning, 0);
     get_instance_dx11()->get_device_context()->VSSetConstantBuffers(4, 1, &m_constant_buffer_skinning);

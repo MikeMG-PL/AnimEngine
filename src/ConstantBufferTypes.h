@@ -6,7 +6,8 @@
 
 i32 constexpr MAX_POINT_LIGHTS = 20;
 i32 constexpr MAX_SPOT_LIGHTS = 20;
-i16 constexpr SKINNING_BUFFER_SIZE = 512;
+i16 constexpr SKINNING_BUFFER_SIZE = 128;
+i16 constexpr MAX_SKINNED_MODELS = 8;
 
 struct ConstantBuffer
 {
@@ -110,6 +111,14 @@ struct ConstantBufferPerObject
 struct SkinningBuffer
 {
     glm::mat4 bones[SKINNING_BUFFER_SIZE];
+};
+
+struct SkinningIDBuffer
+{
+    u32 model_id;
+    float padding1;
+    float padding2;
+    float padding3;
 };
 
 struct ConstantBufferParticle

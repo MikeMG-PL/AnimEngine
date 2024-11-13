@@ -44,7 +44,7 @@ public:
     virtual void draw() const override;
     virtual void draw_instanced(i32 const size) override;
 
-    glm::mat4 const* get_skinning_matrices() const;
+    virtual std::shared_ptr<std::vector<glm::mat4>> get_skinning_matrices() const override;
 
     virtual void initialize() override;
     virtual void uninitialize() override;
@@ -62,9 +62,6 @@ public:
 
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/anims/conv77_12_Anim.gltf";
-
-    NON_SERIALIZED
-    std::vector<glm::mat4> skinning_matrices = {};
 
     NON_SERIALIZED
     Animation animation = {};

@@ -24,7 +24,7 @@ protected:
                                glm::mat4 const& projection_view_no_translation) const override;
     virtual void update_material(std::shared_ptr<Material> const& material) const override;
     virtual void update_object(std::shared_ptr<Drawable> const& drawable, std::shared_ptr<Material> const& material,
-                               glm::mat4 const& projection_view, glm::mat4 const* bones = nullptr) const override;
+                               glm::mat4 const& projection_view, std::shared_ptr<std::vector<glm::mat4>> const& bones = {}) const override;
 
     virtual void unbind_material(std::shared_ptr<Material> const& material) const override;
 

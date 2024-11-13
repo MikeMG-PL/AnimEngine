@@ -2,6 +2,7 @@
 
 #include "Bounds.h"
 #include "Component.h"
+#include "ConstantBufferTypes.h"
 #include "DrawType.h"
 #include "Material.h"
 
@@ -34,6 +35,8 @@ public:
     RasterizerDrawType get_rasterizer_draw_type() const;
     void set_rasterizer_draw_type(RasterizerDrawType const new_draw_mode);
 
+    virtual [[nodiscard]] std::shared_ptr<std::vector<glm::mat4>> get_skinning_matrices() const;
+
     NON_SERIALIZED
     BoundingBox bounds = {};
 
@@ -41,6 +44,7 @@ public:
 
 protected:
     RasterizerDrawType m_rasterizer_draw_type = RasterizerDrawType::Default;
+    std::vector<glm::mat4> m_skinning_matrices = {};
 
 private:
     i32 m_is_glowing = 0;

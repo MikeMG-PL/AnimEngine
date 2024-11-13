@@ -15,7 +15,7 @@ public:
 
     void initialize();
     void update_animations();
-    void draw_animation_preview() const;
+    void draw_animation_preview();
     void register_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
     void unregister_skinned_model(std::shared_ptr<SkinnedModel> const& skinned_model);
     void register_motion_matching_handler(std::shared_ptr<MotionMatching>& handler);
@@ -25,6 +25,8 @@ public:
     {
         return m_instance;
     }
+
+    [[nodiscard]] glm::mat4* get_skinning_matrices();
 
     AnimationEngine() = default;
     virtual ~AnimationEngine() = default;
@@ -36,6 +38,7 @@ public:
 
 private:
     inline static std::shared_ptr<AnimationEngine> m_instance;
+    SkinningBuffer m_skinning_buffer = {};
     std::vector<std::shared_ptr<SkinnedModel>> m_skinned_models = {};
     std::weak_ptr<MotionMatching> m_motion_matching_settings = {};
     u8 m_handler_count = 0;

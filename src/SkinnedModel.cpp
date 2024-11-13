@@ -162,9 +162,9 @@ void SkinnedModel::draw_instanced(i32 const size)
         mesh->draw_instanced(size);
 }
 
-glm::mat4 const* SkinnedModel::get_skinning_matrices() const
+std::shared_ptr<std::vector<glm::mat4>> SkinnedModel::get_skinning_matrices() const
 {
-    return skinning_matrices.data();
+    return Drawable::get_skinning_matrices();
 }
 
 void SkinnedModel::initialize()
@@ -404,8 +404,8 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
     std::string const node_name = node->name;
     glm::mat4 node_transform = node->transformation;
 
-    if (skinning_matrices.empty())
-        skinning_matrices.resize(512);
+    if (m_skinning_matrices.empty())
+        m_skinning_matrices.resize(SKINNING_BUFFER_SIZE);
 
     if (Bone* bone = find_bone(node_name))
     {
@@ -461,7 +461,7 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
     {
         i32 const index = bone_info_map[node_name].id;
         glm::mat4 const offset = bone_info_map[node_name].offset;
-        skinning_matrices[index] = global_transformation * offset;
+        m_skinning_matrices[index] = global_transformation * offset;
     }
 
     for (int i = 0; i < node->children_count; i++)

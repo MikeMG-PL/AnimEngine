@@ -42,13 +42,15 @@ public:
     virtual void set_rasterizer_draw_type(RasterizerDrawType const rasterizer_draw_type) override;
     virtual void restore_default_rasterizer_draw_type() override;
     void set_skinning_buffer(std::shared_ptr<Drawable> const& drawable, glm::mat4 const* bones) const;
+    void set_skinning_id_to_shader(SkinningIDBuffer const& skinning_id_buffer) const;
+    void send_skinning_to_shader(SkinningBuffer const& skinning_buffer);
 
 protected:
     virtual void update_shader(std::shared_ptr<Shader> const& shader, glm::mat4 const& projection_view,
                                glm::mat4 const& projection_view_no_translation) const override;
     virtual void update_material(std::shared_ptr<Material> const& material) const override;
     virtual void update_object(std::shared_ptr<Drawable> const& drawable, std::shared_ptr<Material> const& material,
-                               glm::mat4 const& projection_view, glm::mat4 const* bones) const override;
+                               glm::mat4 const& projection_view, std::shared_ptr<std::vector<glm::mat4>> const& bones = {}) const override;
 
     virtual void unbind_material(std::shared_ptr<Material> const& material) const override;
     virtual void bind_universal_resources() const override;
@@ -85,7 +87,7 @@ private:
     virtual void render_shadow_maps() const override;
 
     virtual void render_lighting_pass() const override;
-    virtual void render_geometry_pass(glm::mat4 const& projection_view) const override;
+    virtual void render_geometry_pass(glm::mat4 const& projection_view, glm::mat4 const* bones = nullptr) const override;
     virtual void render_ssao() const override;
     virtual void render_aa() const override;
 
@@ -118,6 +120,7 @@ private:
     ID3D11Buffer* m_constant_buffer_psmisc = nullptr;
     ID3D11Buffer* m_constant_buffer_particle = nullptr;
     ID3D11Buffer* m_constant_buffer_skinning = nullptr;
+    ID3D11Buffer* m_constant_buffer_skinning_id = nullptr;
     ID3D11DepthStencilView* m_depth_stencil_view = nullptr;
     ID3D11Texture2D* m_depth_stencil_buffer = nullptr;
     ID3D11DepthStencilState* m_depth_stencil_state = nullptr;

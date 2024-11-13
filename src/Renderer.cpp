@@ -1,5 +1,7 @@
 #include "Renderer.h"
 
+#include "AnimationEngine.h"
+
 #include <array>
 #include <format>
 #include <glad/glad.h>
@@ -276,7 +278,7 @@ void Renderer::render() const
         Camera::get_main_camera()->get_projection() * glm::mat4(glm::mat3(Camera::get_main_camera()->get_view_matrix()));
 
     // Renders to G-Buffer
-    render_geometry_pass(projection_view);
+    render_geometry_pass(projection_view, AnimationEngine::get_instance()->get_skinning_matrices());
 
     render_ssao();
 
@@ -298,7 +300,7 @@ void Renderer::render() const
     render_custom_render_order_after_aa(projection_view, projection_view_no_translation);
 }
 
-void Renderer::render_geometry_pass(glm::mat4 const& projection_view) const
+void Renderer::render_geometry_pass(glm::mat4 const& projection_view, glm::mat4 const* bones) const
 {
 }
 
@@ -457,7 +459,7 @@ void Renderer::draw(std::shared_ptr<Material> const& material, glm::mat4 const& 
 
     for (auto const& drawable : material->drawables)
     {
-        update_object(drawable, material, projection_view);
+        update_object(drawable, material, projection_view, drawable->get_skinning_matrices());
 
         if (material->is_billboard)
         {
