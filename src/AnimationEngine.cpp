@@ -43,12 +43,14 @@ void AnimationEngine::draw_animation_preview()
         auto const skinned_model = m_skinned_models[i];
 
         // This is for convenience, my dataset animations have T-pose in 0 frame, so this makes the preview draw one of the early frames.
-        if (AK::Math::are_nearly_equal(skinned_model->animation.current_time, 0.0f) && skinned_model->animation.duration > 500.0f)
+        if (allow_animation_previews && AK::Math::are_nearly_equal(skinned_model->animation.current_time, 0.0f)
+            && skinned_model->animation.duration > 500.0f)
         {
             skinned_model->animation.current_time = 500.0f;
         }
 
-        skinned_model->calculate_bone_transform(&skinned_model->animation.root_node, glm::mat4(1.0f));
+        if (allow_animation_previews)
+            skinned_model->calculate_bone_transform(&skinned_model->animation.root_node, glm::mat4(1.0f));
     }
 }
 

@@ -63,6 +63,8 @@ public:
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/anims/conv77_12_Anim.gltf";
 
+    bool enable_root_motion = true;
+
     NON_SERIALIZED
     Animation animation = {};
 

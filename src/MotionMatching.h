@@ -9,6 +9,7 @@
 // NOTE (IMPORTANT!) Motion Matching settings are saved in a prefab MotionMatching.txt
 // This prefab needs to be on scene and its settings will be exposed to a global editor.
 
+class SkinnedModel;
 constexpr u8 feature_num = 3;
 
 struct Feature
@@ -48,5 +49,7 @@ public:
     bool always_latest_logs = true;
 
 private:
+    glm::vec3 calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const;
+    glm::vec3 calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const;
     std::vector<Sample> m_sample_database = {};
 };

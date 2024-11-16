@@ -36,6 +36,8 @@ public:
         m_instance = animation_engine;
     }
 
+    bool allow_animation_previews = true;
+
 private:
     inline static std::shared_ptr<AnimationEngine> m_instance;
     SkinningBuffer m_skinning_buffer = {};

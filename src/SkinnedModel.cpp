@@ -92,6 +92,8 @@ void SkinnedModel::draw_editor()
         reprepare();
     }
 
+    ImGui::Checkbox("Enable root motion", &enable_root_motion);
+
     // Choose rasterizer draw mode for individual model
     std::array const draw_type_items = {"Default", "Wireframe", "Solid"};
 
@@ -412,7 +414,7 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
         glm::vec3 root_offset = glm::vec3(0.0f);
         // Get the entity's current rotation in world/space (quaternion)
         glm::quat model_rotation = entity->transform->get_rotation();
-        if (bone->id == 0)
+        if (bone->id == 0 && enable_root_motion)
         {
             glm::vec3 scale = glm::vec3(0.0f);
             glm::vec3 skew = glm::vec3(0.0f);
@@ -420,6 +422,9 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
             glm::quat root_rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
             decompose(bone->local_transform, scale, root_rotation, root_offset, skew, perspective);
+
+            // Debug::log(std::to_string(root_rotation.w) + ", " + std::to_string(root_rotation.x) + ", " + std::to_string(root_rotation.y)
+            //            + ", " + std::to_string(root_rotation.z));
 
             // Rotate the local position by the entity's model/world rotation
             glm::vec3 rotated_position = model_rotation * (root_offset - animation.cached_root_offset);
