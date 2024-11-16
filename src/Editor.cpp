@@ -732,7 +732,7 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
         }
         ImGui::SameLine(0, 25.0f);
         ImGui::Checkbox("Show newest logs", &motion_matching_handler->always_latest_logs);
-        if (ImGui::BeginListBox("Motion Matching Logs", ImVec2(-FLT_MIN, 0.0f)))
+        if (ImGui::BeginListBox("Motion Matching Logs", ImVec2(-FLT_MIN, -20.0f)))
         {
             ImGuiListClipper clipper;
             clipper.Begin(motion_matching_handler->debug_messages.size());
