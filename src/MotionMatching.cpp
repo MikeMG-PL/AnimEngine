@@ -27,12 +27,12 @@ void MotionMatching::populate_sample_database()
     auto const assets = Editor::Editor::get_instance()->get_assets(Editor::AssetType::Animation);
     std::string const first_anim_path = assets->at(0).path;
 
-    log("Processed animation assets:");
-
-    for (auto const& i : *assets)
-    {
-        log(i.path);
-    }
+    // log("Processed animation assets:");
+    //
+    // for (auto const& i : *assets)
+    // {
+    //     log(i.path);
+    // }
 
     auto const temp_skinned_model =
         entity->add_component_internal<SkinnedModel>(SkinnedModel::create(skinned_model_path, first_anim_path, default_material));
@@ -53,11 +53,54 @@ void MotionMatching::populate_sample_database()
     float const sample_end_time = max_margin - feature_num * sample_rate_ms;
     u32 const num_samples = (static_cast<u32>(sample_end_time) - static_cast<u32>(sample_start_time)) / static_cast<u32>(sample_rate_ms);
 
-    temp_skinned_model->animation.current_time = 600.0f;
-    temp_skinned_model->calculate_bone_transform(&temp_skinned_model->animation.root_node, glm::mat4(1.0f));
+    if (sample_end_time - sample_start_time < 0)
+    {
+        log("Clip too short to sample with current rate, come up with something.", DebugType::Error);
+        return;
+    }
 
-    glm::vec3 feature_pos = calculate_feature_position(temp_skinned_model);
-    glm::vec3 facing_direction = calculate_facing_direction(temp_skinned_model);
+    // Generating samples
+    for (u32 i = 0; i < num_samples; i++)
+    {
+        log("Sample " + std::to_string(i) + ":");
+        // Going through individual features
+
+        Sample sample = {};
+
+        for (i32 j = -feature_num; j <= feature_num; j++)
+        {
+            float const step = static_cast<float>(j) * sample_rate_ms;
+
+            temp_skinned_model->animation.current_time = sample_start_time + static_cast<float>(i) * sample_rate_ms + step;
+            temp_skinned_model->calculate_bone_transform(&temp_skinned_model->animation.root_node, glm::mat4(1.0f));
+
+            glm::vec3 feature_pos = calculate_feature_position(temp_skinned_model);
+            glm::vec3 facing_direction = calculate_facing_direction(temp_skinned_model);
+
+            Feature feature = {};
+            feature.position = feature_pos;
+            feature.facing_direction = facing_direction;
+
+            if (j < 0)
+                sample.past_features.emplace_back(feature);
+
+            if (j == 0)
+                sample.current_feature = feature;
+
+            if (j > 0)
+                sample.future_features.emplace_back(feature);
+
+            log("   Feature " + std::to_string(j) + ":" + " time: " + std::to_string(temp_skinned_model->animation.current_time)
+                + " ms, pos: " + std::to_string(feature_pos.x) + ", " + std::to_string(feature_pos.y) + ", " + std::to_string(feature_pos.z)
+                + ", facing direction: " + std::to_string(facing_direction.x) + ", " + std::to_string(facing_direction.y) + ", "
+                + std::to_string(facing_direction.z));
+        }
+
+        sample.clip_local_time = temp_skinned_model->animation.current_time;
+        sample.clip_id = 0;
+
+        m_sample_database.emplace_back(sample);
+    }
 
     /////////////////////////////////////////////////////////////////
     AnimationEngine::get_instance()->allow_animation_previews = true;
