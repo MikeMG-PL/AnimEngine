@@ -28,8 +28,17 @@ void MotionMatching::populate_sample_database()
     auto const assets = Editor::Editor::get_instance()->get_assets(Editor::AssetType::Animation);
     std::string const first_anim_path = assets->at(0).path;
 
-    auto const temp_skinned_model =
-        entity->add_component_internal<SkinnedModel>(SkinnedModel::create(skinned_model_path, first_anim_path, default_material));
+    std::shared_ptr<SkinnedModel> temp_skinned_model = nullptr;
+
+    if (entity->get_component<SkinnedModel>() == nullptr)
+    {
+        temp_skinned_model =
+            entity->add_component_internal<SkinnedModel>(SkinnedModel::create(skinned_model_path, first_anim_path, default_material));
+    }
+    else
+    {
+        temp_skinned_model = entity->get_component<SkinnedModel>();
+    }
 
     // Disable any animation system elements that might interfere with root bone data
     temp_skinned_model->enable_root_motion = false;

@@ -74,7 +74,7 @@ Entities:
     guid: 8bb7cd92191c071967b21ee84b41d97fd384d68e3bdcc0b991621c893cf44487
     Name: SKM
     TransformComponent:
-      Translation: [1.5448792, -7.87353045e-08, -1.12816262]
+      Translation: [1.67600346, -8.02194862e-08, -0.694411278]
       Rotation: [0, -61.5461578, 0]
       Scale: [0.999999702, 1, 0.999999702]
       Parent:
@@ -1128,22 +1128,6 @@ Entities:
           - [[[ [2.24642669e-08, 0.15721558, 2.30846169e-08], [-1.37755194e-08, 0, -1]], [[6.87367887e-08, 0.157215536, -1.16518535e-07], [-1.37755194e-08, 0, -1]], [[1.68696523e-08, 0.157215595, -7.47775388e-08], [-1.37755194e-08, 0, -1]]], [[[-7.74738211e-08, 0.157215536, -8.14844157e-08], [-1.37755194e-08, 0, -1]], [[-1.06414376e-07, 0.157215595, -5.76580597e-08], [-1.37755194e-08, 0, -1]], [[1.59082276e-07, 0.157215595, 1.05137588e-08], [-1.37755194e-08, 0, -1]]], [[6.92197801e-08, 0.15721561, -1.04291189e-07], [-1.37755194e-08, 0, -1]], 0, 23100.0039]
       - ComponentName: SkinnedModelComponent
         guid: 0e3f5c24e93777e391ac10adc8fe57d1794c443d8f9efc27c37851f4bbfe2152
-        custom_name: ""
-        model_path: ./res/models/enemy/enemy.gltf
-        anim_path: ./res/anims\conv77_13_Anim.gltf
-        enable_root_motion: false
-        material:
-          Shader:
-            VertexPath: ./res/shaders/lit.hlsl
-            FragmentPath: ./res/shaders/lit.hlsl
-            GeometryPath: ""
-          Color: [1, 1, 1, 1]
-          RenderOrder: 0
-          NeedsForward: false
-          CastsShadows: true
-          IsBillboard: false
-      - ComponentName: SkinnedModelComponent
-        guid: 579ab5f2e98cc3a6436d302eec2ad8422d6f8131fe7a0f8c3569a7932a1c454e
         custom_name: ""
         model_path: ./res/models/enemy/enemy.gltf
         anim_path: ./res/anims\conv77_13_Anim.gltf
