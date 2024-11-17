@@ -39,6 +39,7 @@
     ENUMERATE_COMPONENT(ShipSpawner, "Ship Spawner")                            \
     ENUMERATE_COMPONENT(Thanks, "Thanks")                                       \
     ENUMERATE_COMPONENT(PlayerInput, "Player Input")                            \
+    ENUMERATE_COMPONENT(MotionMatchingPath, "Motion Matching Path")             \
     ENUMERATE_COMPONENT(Path, "Path")                                           \
     ENUMERATE_COMPONENT(Button, "Button")                                       \
     ENUMERATE_COMPONENT(Model, "Model")                                         \

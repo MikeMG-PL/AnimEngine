@@ -52,6 +52,7 @@
 #include "Light.h"
 #include "Model.h"
 #include "MotionMatching.h"
+#include "MotionMatchingPath.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
 #include "Particle.h"
@@ -168,6 +169,13 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
             out << YAML::Key << "ComponentName" << YAML::Value << "PathComponent";
             out << YAML::Key << "guid" << YAML::Value << path->guid;
             out << YAML::Key << "custom_name" << YAML::Value << path->custom_name;
+        }
+        else if (auto const motionmatchingpath = std::dynamic_pointer_cast<class MotionMatchingPath>(component);
+                 motionmatchingpath != nullptr)
+        {
+            out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingPathComponent";
+            out << YAML::Key << "guid" << YAML::Value << motionmatchingpath->guid;
+            out << YAML::Key << "custom_name" << YAML::Value << motionmatchingpath->custom_name;
         }
         else
         {
@@ -912,6 +920,39 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
         else
         {
             auto const deserialized_component = std::dynamic_pointer_cast<class Curve>(get_from_pool(component["guid"].as<std::string>()));
+            if (component["points"].IsDefined())
+            {
+                deserialized_component->points = component["points"].as<std::vector<glm::vec2>>();
+            }
+            if (component["curve"].IsDefined())
+            {
+                deserialized_component->curve = component["curve"].as<std::vector<glm::vec2>>();
+            }
+            if (component["clamp_x"].IsDefined())
+            {
+                deserialized_component->clamp_x = component["clamp_x"].as<bool>();
+            }
+            if (component["connection"].IsDefined())
+            {
+                deserialized_component->connection = component["connection"].as<PointsConnection>();
+            }
+            deserialized_entity->add_component(deserialized_component);
+            deserialized_component->reprepare();
+        }
+    }
+    else if (component_name == "MotionMatchingPathComponent")
+    {
+        if (first_pass)
+        {
+            auto const deserialized_component = MotionMatchingPath::create();
+            deserialized_component->guid = component["guid"].as<std::string>();
+            deserialized_component->custom_name = component["custom_name"].as<std::string>();
+            deserialized_pool.emplace_back(deserialized_component);
+        }
+        else
+        {
+            auto const deserialized_component =
+                std::dynamic_pointer_cast<class MotionMatchingPath>(get_from_pool(component["guid"].as<std::string>()));
             if (component["points"].IsDefined())
             {
                 deserialized_component->points = component["points"].as<std::vector<glm::vec2>>();

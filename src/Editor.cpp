@@ -65,6 +65,7 @@
 #include "Light.h"
 #include "Model.h"
 #include "MotionMatching.h"
+#include "MotionMatchingPath.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
 #include "Particle.h"
