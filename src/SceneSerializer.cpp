@@ -51,8 +51,8 @@
 #include "Game/Thanks.h"
 #include "Light.h"
 #include "Model.h"
-#include "MotionMatching.h"
 #include "MotionMatchingPath.h"
+#include "MotionMatchingSampler.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
 #include "Particle.h"
@@ -420,16 +420,17 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
         out << YAML::Key << "m_light_frustum_width" << YAML::Value << light->m_light_frustum_width;
         out << YAML::EndMap;
     }
-    else if (auto const motionmatching = std::dynamic_pointer_cast<class MotionMatching>(component); motionmatching != nullptr)
+    else if (auto const motionmatchingsampler = std::dynamic_pointer_cast<class MotionMatchingSampler>(component);
+             motionmatchingsampler != nullptr)
     {
         out << YAML::BeginMap;
-        out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingComponent";
-        out << YAML::Key << "guid" << YAML::Value << motionmatching->guid;
-        out << YAML::Key << "custom_name" << YAML::Value << motionmatching->custom_name;
-        out << YAML::Key << "skinned_model_path" << YAML::Value << motionmatching->skinned_model_path;
-        out << YAML::Key << "sample_rate" << YAML::Value << motionmatching->sample_rate;
-        out << YAML::Key << "always_latest_logs" << YAML::Value << motionmatching->always_latest_logs;
-        out << YAML::Key << "sample_database" << YAML::Value << motionmatching->sample_database;
+        out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingSamplerComponent";
+        out << YAML::Key << "guid" << YAML::Value << motionmatchingsampler->guid;
+        out << YAML::Key << "custom_name" << YAML::Value << motionmatchingsampler->custom_name;
+        out << YAML::Key << "skinned_model_path" << YAML::Value << motionmatchingsampler->skinned_model_path;
+        out << YAML::Key << "sample_rate" << YAML::Value << motionmatchingsampler->sample_rate;
+        out << YAML::Key << "always_latest_logs" << YAML::Value << motionmatchingsampler->always_latest_logs;
+        out << YAML::Key << "sample_database" << YAML::Value << motionmatchingsampler->sample_database;
         out << YAML::EndMap;
     }
     else if (auto const nowprompttrigger = std::dynamic_pointer_cast<class NowPromptTrigger>(component); nowprompttrigger != nullptr)
@@ -1733,11 +1734,11 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
             deserialized_component->reprepare();
         }
     }
-    else if (component_name == "MotionMatchingComponent")
+    else if (component_name == "MotionMatchingSamplerComponent")
     {
         if (first_pass)
         {
-            auto const deserialized_component = MotionMatching::create();
+            auto const deserialized_component = MotionMatchingSampler::create();
             deserialized_component->guid = component["guid"].as<std::string>();
             deserialized_component->custom_name = component["custom_name"].as<std::string>();
             deserialized_pool.emplace_back(deserialized_component);
@@ -1745,7 +1746,7 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
         else
         {
             auto const deserialized_component =
-                std::dynamic_pointer_cast<class MotionMatching>(get_from_pool(component["guid"].as<std::string>()));
+                std::dynamic_pointer_cast<class MotionMatchingSampler>(get_from_pool(component["guid"].as<std::string>()));
             if (component["skinned_model_path"].IsDefined())
             {
                 deserialized_component->skinned_model_path = component["skinned_model_path"].as<std::string>();

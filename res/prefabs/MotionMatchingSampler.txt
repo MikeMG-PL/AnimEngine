@@ -1,0 +1,20 @@
+Scene: Untitled
+Entities:
+  - Entity: MotionMatchingSampler
+    guid: cef5ee07e5acecde3646d9d5d8f3c1b43c8df7e679e8294499dc5eea003bd7f0
+    Name: MotionMatchingSampler
+    TransformComponent:
+      Translation: [0, 0, 0]
+      Rotation: [0, 0, 0]
+      Scale: [1, 1, 1]
+      Parent:
+        guid: ""
+    Components:
+      - ComponentName: MotionMatchingSamplerComponent
+        guid: 6dad404fbfe37e2ea02569b1281d36bea9c58a6775ab47aada5e20e53f77dd2a
+        custom_name: ""
+        skinned_model_path: ./res/models/enemy/enemy.gltf
+        sample_rate: 0.200000003
+        always_latest_logs: true
+        sample_database:
+          []

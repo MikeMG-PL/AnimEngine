@@ -6,7 +6,7 @@
 
 #include <memory>
 
-// NOTE (IMPORTANT!) Motion Matching settings are saved in a prefab MotionMatching.txt
+// NOTE (IMPORTANT!) Motion Matching settings are saved in a prefab MotionMatchingSampler.txt
 // This prefab needs to be on scene and its settings will be exposed to a global editor.
 
 class SkinnedModel;
@@ -27,12 +27,12 @@ struct Sample
     float clip_local_time = 0.0f;
 };
 
-class MotionMatching : public Component
+class MotionMatchingSampler : public Component
 {
 public:
-    static std::shared_ptr<MotionMatching> create();
-    explicit MotionMatching(AK::Badge<MotionMatching>);
-    virtual ~MotionMatching() override;
+    static std::shared_ptr<MotionMatchingSampler> create();
+    explicit MotionMatchingSampler(AK::Badge<MotionMatchingSampler>);
+    virtual ~MotionMatchingSampler() override;
 
     void populate_sample_database();
     virtual void initialize() override;

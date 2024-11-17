@@ -1,28 +1,28 @@
-#include "MotionMatching.h"
+#include "MotionMatchingSampler.h"
 
 #include "AnimationEngine.h"
 #include "Editor.h"
 #include "Entity.h"
 #include "glm/gtx/matrix_decompose.hpp"
 
-std::shared_ptr<MotionMatching> MotionMatching::create()
+std::shared_ptr<MotionMatchingSampler> MotionMatchingSampler::create()
 {
-    auto motion_matching_handler = std::make_shared<MotionMatching>(AK::Badge<MotionMatching> {});
+    auto motion_matching_handler = std::make_shared<MotionMatchingSampler>(AK::Badge<MotionMatchingSampler> {});
     AnimationEngine::get_instance()->register_motion_matching_handler(motion_matching_handler);
     return motion_matching_handler;
 }
 
-MotionMatching::MotionMatching(AK::Badge<MotionMatching>)
+MotionMatchingSampler::MotionMatchingSampler(AK::Badge<MotionMatchingSampler>)
 {
     AnimationEngine::get_instance()->count_motion_matching_handlers(1);
 }
 
-MotionMatching::~MotionMatching()
+MotionMatchingSampler::~MotionMatchingSampler()
 {
     AnimationEngine::get_instance()->count_motion_matching_handlers(-1);
 }
 
-void MotionMatching::populate_sample_database()
+void MotionMatchingSampler::populate_sample_database()
 {
     sample_database.clear();
     auto const assets = Editor::Editor::get_instance()->get_assets(Editor::AssetType::Animation);
@@ -118,13 +118,13 @@ void MotionMatching::populate_sample_database()
     AnimationEngine::get_instance()->allow_animation_previews = true;
 }
 
-void MotionMatching::initialize()
+void MotionMatchingSampler::initialize()
 {
     Component::initialize();
     log("Deserialized motion matching data with " + std::to_string(sample_database.size()) + " samples.");
 }
 
-void MotionMatching::log(std::string const& message, DebugType type)
+void MotionMatchingSampler::log(std::string const& message, DebugType type)
 {
     std::string prefix;
 
@@ -146,12 +146,12 @@ void MotionMatching::log(std::string const& message, DebugType type)
     debug_messages.emplace_back(type, prefix + message);
 }
 
-void MotionMatching::clear_log()
+void MotionMatchingSampler::clear_log()
 {
     debug_messages.clear();
 }
 
-glm::vec3 MotionMatching::calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const
+glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const
 {
     glm::mat4 const root_matrix = model->animation.bones[0].local_transform;
     glm::quat q = {};
@@ -165,7 +165,7 @@ glm::vec3 MotionMatching::calculate_feature_position(std::shared_ptr<SkinnedMode
     return pos;
 }
 
-glm::vec3 MotionMatching::calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const
+glm::vec3 MotionMatchingSampler::calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const
 {
     glm::mat4 const hips_matrix = model->animation.bones[1].local_transform;
     glm::quat q = {};

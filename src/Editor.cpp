@@ -64,8 +64,8 @@
 #include "Input.h"
 #include "Light.h"
 #include "Model.h"
-#include "MotionMatching.h"
 #include "MotionMatchingPath.h"
+#include "MotionMatchingSampler.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
 #include "Particle.h"
@@ -704,7 +704,8 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
         }
         //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        std::shared_ptr<MotionMatching> const motion_matching_handler = AnimationEngine::get_instance()->m_motion_matching_settings.lock();
+        std::shared_ptr<MotionMatchingSampler> const motion_matching_handler =
+            AnimationEngine::get_instance()->m_motion_matching_settings.lock();
 
         if (ImGui::Button("Populate Sample Database", ImVec2(-FLT_MIN, 20.0f)))
         {

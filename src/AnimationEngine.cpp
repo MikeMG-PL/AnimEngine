@@ -64,7 +64,7 @@ void AnimationEngine::unregister_skinned_model(std::shared_ptr<SkinnedModel> con
     AK::swap_and_erase(m_skinned_models, skinned_model);
 }
 
-void AnimationEngine::register_motion_matching_handler(std::shared_ptr<MotionMatching>& handler)
+void AnimationEngine::register_motion_matching_handler(std::shared_ptr<MotionMatchingSampler>& handler)
 {
     m_motion_matching_settings = handler;
 }
