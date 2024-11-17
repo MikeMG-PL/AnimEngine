@@ -35,6 +35,7 @@ public:
     virtual ~MotionMatching() override;
 
     void populate_sample_database();
+    virtual void initialize() override;
 
     // Debug
     void log(std::string const& message, DebugType type = DebugType::Log);
@@ -48,8 +49,10 @@ public:
     std::vector<DebugMessage> debug_messages = {};
     bool always_latest_logs = true;
 
+    // The most important thing there indeed ;)
+    std::vector<Sample> sample_database = {};
+
 private:
     glm::vec3 calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const;
     glm::vec3 calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const;
-    std::vector<Sample> m_sample_database = {};
 };

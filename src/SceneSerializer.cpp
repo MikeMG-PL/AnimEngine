@@ -418,6 +418,7 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
         out << YAML::Key << "skinned_model_path" << YAML::Value << motionmatching->skinned_model_path;
         out << YAML::Key << "sample_rate" << YAML::Value << motionmatching->sample_rate;
         out << YAML::Key << "always_latest_logs" << YAML::Value << motionmatching->always_latest_logs;
+        out << YAML::Key << "sample_database" << YAML::Value << motionmatching->sample_database;
         out << YAML::EndMap;
     }
     else if (auto const nowprompttrigger = std::dynamic_pointer_cast<class NowPromptTrigger>(component); nowprompttrigger != nullptr)
@@ -1688,6 +1689,10 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
             if (component["always_latest_logs"].IsDefined())
             {
                 deserialized_component->always_latest_logs = component["always_latest_logs"].as<bool>();
+            }
+            if (component["sample_database"].IsDefined())
+            {
+                deserialized_component->sample_database = component["sample_database"].as<std::vector<Sample>>();
             }
             deserialized_entity->add_component(deserialized_component);
             deserialized_component->reprepare();
