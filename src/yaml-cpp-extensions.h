@@ -410,6 +410,28 @@ struct convert<FactoryType>
 };
 
 template<>
+struct convert<PointsConnection>
+{
+    static Node encode(PointsConnection const rhs)
+    {
+        Node node;
+        node.push_back(to_integral(rhs));
+        return node;
+    }
+
+    static bool decode(Node const& node, PointsConnection& rhs)
+    {
+        if (!node.IsScalar())
+        {
+            return false;
+        }
+
+        rhs = static_cast<PointsConnection>(node.as<int>());
+        return true;
+    }
+};
+
+template<>
 struct convert<SpawnType>
 {
     static Node encode(SpawnType const rhs)
@@ -806,6 +828,13 @@ inline Emitter& operator<<(YAML::Emitter& out, ConstantBufferWater const& cb)
 }
 
 inline Emitter& operator<<(YAML::Emitter& out, SpawnType const& v)
+{
+    out << YAML::Flow;
+    out << to_integral(v);
+    return out;
+}
+
+inline Emitter& operator<<(YAML::Emitter& out, PointsConnection const& v)
 {
     out << YAML::Flow;
     out << to_integral(v);

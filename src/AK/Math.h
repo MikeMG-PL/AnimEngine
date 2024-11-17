@@ -9,6 +9,8 @@
 #include "glm/fwd.hpp"
 #include "glm/gtc/quaternion.hpp"
 
+#include <vector>
+
 namespace AK
 {
 
@@ -32,6 +34,8 @@ public:
 
     static float ease_in_out_elastic(float const x);
     static float ease_out_quart(float const x);
+
+    static std::vector<glm::vec2> catmull_rom_curve(std::vector<glm::vec2> const& points, u32 num_segments);
 
     static xform mul_xforms(xform const& a, xform const& b);
     static xform mat4_to_xform(glm::mat4 const& m);

@@ -107,6 +107,41 @@ float Math::ease_out_quart(float const x)
     return 1.0f - pow(1.0f - x, 4.0f);
 }
 
+std::vector<glm::vec2> Math::catmull_rom_curve(std::vector<glm::vec2> const& points, u32 num_segments)
+{
+    std::vector<glm::vec2> curve;
+
+    if (points.size() < 2)
+        return curve;
+
+    for (size_t i = 0; i < points.size() - 1; ++i)
+    {
+        glm::vec2 p0 = (i == 0) ? points[i] : points[i - 1];
+        glm::vec2 p1 = points[i];
+        glm::vec2 p2 = points[i + 1];
+        glm::vec2 p3 = (i + 2 < points.size()) ? points[i + 2] : points[i + 1];
+
+        for (int j = 0; j < num_segments; ++j)
+        {
+            float t = j / static_cast<float>(num_segments);
+
+            // Catmull-Rom formula
+            float const t2 = t * t;
+            float const t3 = t2 * t;
+
+            glm::vec2 point =
+                0.5f
+                * ((2.0f * p1) + (-p0 + p2) * t + (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 + (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+            curve.push_back(point);
+        }
+    }
+
+    // Add the last point
+    curve.push_back(points.back());
+
+    return curve;
+}
+
 xform Math::mul_xforms(xform const& a, xform const& b)
 {
     xform result;

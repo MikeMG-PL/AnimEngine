@@ -176,6 +176,9 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
             out << YAML::Key << "custom_name" << YAML::Value << curve->custom_name;
         }
         out << YAML::Key << "points" << YAML::Value << curve->points;
+        out << YAML::Key << "curve" << YAML::Value << curve->curve;
+        out << YAML::Key << "clamp_x" << YAML::Value << curve->clamp_x;
+        out << YAML::Key << "connection" << YAML::Value << curve->connection;
         out << YAML::EndMap;
     }
     else if (auto const debuginputcontroller = std::dynamic_pointer_cast<class DebugInputController>(component);
@@ -913,6 +916,18 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
             {
                 deserialized_component->points = component["points"].as<std::vector<glm::vec2>>();
             }
+            if (component["curve"].IsDefined())
+            {
+                deserialized_component->curve = component["curve"].as<std::vector<glm::vec2>>();
+            }
+            if (component["clamp_x"].IsDefined())
+            {
+                deserialized_component->clamp_x = component["clamp_x"].as<bool>();
+            }
+            if (component["connection"].IsDefined())
+            {
+                deserialized_component->connection = component["connection"].as<PointsConnection>();
+            }
             deserialized_entity->add_component(deserialized_component);
             deserialized_component->reprepare();
         }
@@ -932,6 +947,18 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
             if (component["points"].IsDefined())
             {
                 deserialized_component->points = component["points"].as<std::vector<glm::vec2>>();
+            }
+            if (component["curve"].IsDefined())
+            {
+                deserialized_component->curve = component["curve"].as<std::vector<glm::vec2>>();
+            }
+            if (component["clamp_x"].IsDefined())
+            {
+                deserialized_component->clamp_x = component["clamp_x"].as<bool>();
+            }
+            if (component["connection"].IsDefined())
+            {
+                deserialized_component->connection = component["connection"].as<PointsConnection>();
             }
             deserialized_entity->add_component(deserialized_component);
             deserialized_component->reprepare();

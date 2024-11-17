@@ -1,5 +1,6 @@
 #include "Curve.h"
 
+#include "AK/Math.h"
 #include "Entity.h"
 #include "Game/LevelController.h"
 
@@ -29,28 +30,19 @@ void Curve::draw_editor()
 {
     Component::draw_editor();
 
-    if (ImPlot::BeginPlot("Path visualised"))
+    std::array const connection_types = {"Linear", "Catmull-Rom"};
+    i32 current_item_index = static_cast<i32>(connection);
+    if (ImGui::Combo("Point connection type", &current_item_index, connection_types.data(), connection_types.size()))
     {
-        ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.0f);
-        ImPlot::SetupLegend(ImPlotFlags_NoLegend);
+        connection = static_cast<PointsConnection>(current_item_index);
+    }
 
-        std::vector<float> xs, ys;
-        for (auto const& p : points)
-        {
-            xs.push_back(p.x);
-            ys.push_back(p.y);
-        }
-
-        ImPlot::PlotLine("##Line", xs.data(), ys.data(), points.size());
-
+    if (ImGui::Checkbox("Clamp X axis", &clamp_x))
+    {
         for (u32 i = 0; i < points.size(); i++)
         {
-            double px = xs[i];
-            double py = ys[i];
-            if (ImPlot::DragPoint(i, &px, &py, ImVec4(0, 0.9f, 0, 1), 4))
+            if (clamp_x)
             {
-                points[i].x = px;
-
                 float left_clamp = 0.0f;
                 float right_clamp = 1.0f;
 
@@ -65,6 +57,69 @@ void Curve::draw_editor()
                 }
 
                 points[i].x = glm::clamp(points[i].x, left_clamp, right_clamp);
+            }
+        }
+    }
+
+    if (ImPlot::BeginPlot("Path visualised"))
+    {
+        ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.0f);
+        ImPlot::SetupLegend(ImPlotFlags_NoLegend);
+
+        // Generate smooth curve
+        int const num_segments = 20; // Number of segments between each point
+        switch (connection)
+        {
+        case PointsConnection::Linear:
+            curve = points;
+            break;
+
+        case PointsConnection::CatmullRom:
+            curve = AK::Math::catmull_rom_curve(points, num_segments);
+            break;
+        }
+
+        std::vector<float> xs, ys;
+        std::vector<float> real_xs, real_ys;
+        for (auto const& p : curve)
+        {
+            xs.push_back(p.x);
+            ys.push_back(p.y);
+        }
+
+        for (auto const& p : points)
+        {
+            real_xs.push_back(p.x);
+            real_ys.push_back(p.y);
+        }
+
+        ImPlot::PlotLine("##Line", xs.data(), ys.data(), curve.size());
+
+        for (u32 i = 0; i < points.size(); i++)
+        {
+            double px = real_xs[i];
+            double py = real_ys[i];
+            if (ImPlot::DragPoint(i, &px, &py, ImVec4(0, 0.9f, 0, 1), 4))
+            {
+                points[i].x = px;
+
+                if (clamp_x)
+                {
+                    float left_clamp = 0.0f;
+                    float right_clamp = 1.0f;
+
+                    if (i > 0)
+                    {
+                        left_clamp = points[i - 1].x;
+                    }
+
+                    if (i < points.size() - 1)
+                    {
+                        right_clamp = points[i + 1].x;
+                    }
+
+                    points[i].x = glm::clamp(points[i].x, left_clamp, right_clamp);
+                }
 
                 points[i].y = py;
             }
@@ -102,9 +157,9 @@ void Curve::draw_editor()
 float Curve::length() const
 {
     float distance = 0.0f;
-    for (u32 i = 0; i < points.size() - 1; i++)
+    for (u32 i = 0; i < curve.size() - 1; i++)
     {
-        distance += glm::distance(points[i], points[i + 1]);
+        distance += glm::distance(curve[i], curve[i + 1]);
     }
 
     return distance;
