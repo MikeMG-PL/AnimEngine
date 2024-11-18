@@ -14,6 +14,7 @@
     ENUMERATE_COMPONENT(Floater, "Floater")                                     \
     ENUMERATE_COMPONENT(FloatersManager, "Floaters Manager")                    \
     ENUMERATE_COMPONENT(FloeButton, "Floe Button")                              \
+    ENUMERATE_COMPONENT(MotionMatchingController, "Motion Matching Controller") \
     ENUMERATE_COMPONENT(MotionMatchingSampler, "Motion Matching Sampler")       \
     ENUMERATE_COMPONENT(NowPromptTrigger, "Now Prompt Trigger")                 \
     ENUMERATE_COMPONENT(ParticleSystem, "Particle System")                      \
@@ -39,7 +40,6 @@
     ENUMERATE_COMPONENT(ShipSpawner, "Ship Spawner")                            \
     ENUMERATE_COMPONENT(Thanks, "Thanks")                                       \
     ENUMERATE_COMPONENT(PlayerInput, "Player Input")                            \
-    ENUMERATE_COMPONENT(MotionMatchingPath, "Motion Matching Path")             \
     ENUMERATE_COMPONENT(Path, "Path")                                           \
     ENUMERATE_COMPONENT(Button, "Button")                                       \
     ENUMERATE_COMPONENT(Model, "Model")                                         \

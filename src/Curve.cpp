@@ -61,7 +61,7 @@ void Curve::draw_editor()
         }
     }
 
-    if (ImPlot::BeginPlot("Path visualised"))
+    if (ImPlot::BeginPlot("Path editor"))
     {
         ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.0f);
         ImPlot::SetupLegend(ImPlotFlags_NoLegend);

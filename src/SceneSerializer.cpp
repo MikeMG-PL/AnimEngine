@@ -51,7 +51,7 @@
 #include "Game/Thanks.h"
 #include "Light.h"
 #include "Model.h"
-#include "MotionMatchingPath.h"
+#include "MotionMatchingController.h"
 #include "MotionMatchingSampler.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
@@ -169,13 +169,6 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
             out << YAML::Key << "ComponentName" << YAML::Value << "PathComponent";
             out << YAML::Key << "guid" << YAML::Value << path->guid;
             out << YAML::Key << "custom_name" << YAML::Value << path->custom_name;
-        }
-        else if (auto const motionmatchingpath = std::dynamic_pointer_cast<class MotionMatchingPath>(component);
-                 motionmatchingpath != nullptr)
-        {
-            out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingPathComponent";
-            out << YAML::Key << "guid" << YAML::Value << motionmatchingpath->guid;
-            out << YAML::Key << "custom_name" << YAML::Value << motionmatchingpath->custom_name;
         }
         else
         {
@@ -418,6 +411,16 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
         out << YAML::Key << "m_pcf_num_samples" << YAML::Value << light->m_pcf_num_samples;
         out << YAML::Key << "m_light_world_size" << YAML::Value << light->m_light_world_size;
         out << YAML::Key << "m_light_frustum_width" << YAML::Value << light->m_light_frustum_width;
+        out << YAML::EndMap;
+    }
+    else if (auto const motionmatchingcontroller = std::dynamic_pointer_cast<class MotionMatchingController>(component);
+             motionmatchingcontroller != nullptr)
+    {
+        out << YAML::BeginMap;
+        out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingControllerComponent";
+        out << YAML::Key << "guid" << YAML::Value << motionmatchingcontroller->guid;
+        out << YAML::Key << "custom_name" << YAML::Value << motionmatchingcontroller->custom_name;
+        out << YAML::Key << "path_scale" << YAML::Value << motionmatchingcontroller->path_scale;
         out << YAML::EndMap;
     }
     else if (auto const motionmatchingsampler = std::dynamic_pointer_cast<class MotionMatchingSampler>(component);
@@ -921,39 +924,6 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
         else
         {
             auto const deserialized_component = std::dynamic_pointer_cast<class Curve>(get_from_pool(component["guid"].as<std::string>()));
-            if (component["points"].IsDefined())
-            {
-                deserialized_component->points = component["points"].as<std::vector<glm::vec2>>();
-            }
-            if (component["curve"].IsDefined())
-            {
-                deserialized_component->curve = component["curve"].as<std::vector<glm::vec2>>();
-            }
-            if (component["clamp_x"].IsDefined())
-            {
-                deserialized_component->clamp_x = component["clamp_x"].as<bool>();
-            }
-            if (component["connection"].IsDefined())
-            {
-                deserialized_component->connection = component["connection"].as<PointsConnection>();
-            }
-            deserialized_entity->add_component(deserialized_component);
-            deserialized_component->reprepare();
-        }
-    }
-    else if (component_name == "MotionMatchingPathComponent")
-    {
-        if (first_pass)
-        {
-            auto const deserialized_component = MotionMatchingPath::create();
-            deserialized_component->guid = component["guid"].as<std::string>();
-            deserialized_component->custom_name = component["custom_name"].as<std::string>();
-            deserialized_pool.emplace_back(deserialized_component);
-        }
-        else
-        {
-            auto const deserialized_component =
-                std::dynamic_pointer_cast<class MotionMatchingPath>(get_from_pool(component["guid"].as<std::string>()));
             if (component["points"].IsDefined())
             {
                 deserialized_component->points = component["points"].as<std::vector<glm::vec2>>();
@@ -1729,6 +1699,27 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
             if (component["m_light_frustum_width"].IsDefined())
             {
                 deserialized_component->m_light_frustum_width = component["m_light_frustum_width"].as<float>();
+            }
+            deserialized_entity->add_component(deserialized_component);
+            deserialized_component->reprepare();
+        }
+    }
+    else if (component_name == "MotionMatchingControllerComponent")
+    {
+        if (first_pass)
+        {
+            auto const deserialized_component = MotionMatchingController::create();
+            deserialized_component->guid = component["guid"].as<std::string>();
+            deserialized_component->custom_name = component["custom_name"].as<std::string>();
+            deserialized_pool.emplace_back(deserialized_component);
+        }
+        else
+        {
+            auto const deserialized_component =
+                std::dynamic_pointer_cast<class MotionMatchingController>(get_from_pool(component["guid"].as<std::string>()));
+            if (component["path_scale"].IsDefined())
+            {
+                deserialized_component->path_scale = component["path_scale"].as<float>();
             }
             deserialized_entity->add_component(deserialized_component);
             deserialized_component->reprepare();

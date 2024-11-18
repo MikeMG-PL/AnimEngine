@@ -64,7 +64,7 @@
 #include "Input.h"
 #include "Light.h"
 #include "Model.h"
-#include "MotionMatchingPath.h"
+#include "MotionMatchingController.h"
 #include "MotionMatchingSampler.h"
 #include "NowPromptTrigger.h"
 #include "Panel.h"
@@ -687,7 +687,7 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
     case 1: // Motion Matching
     {
         // Check if there is one and only one motion matching handler.
-        if (AnimationEngine::get_instance()->m_motion_matching_settings.expired())
+        if (AnimationEngine::get_instance()->m_motion_matching_sampler.expired())
         {
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 250, 0, 255));
             ImGui::Text("Add Motion Matching prefab to the scene to start using motion matching.");
@@ -705,7 +705,7 @@ void Editor::draw_custom_editor(std::shared_ptr<EditorWindow> const& window)
         //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         std::shared_ptr<MotionMatchingSampler> const motion_matching_handler =
-            AnimationEngine::get_instance()->m_motion_matching_settings.lock();
+            AnimationEngine::get_instance()->m_motion_matching_sampler.lock();
 
         if (ImGui::Button("Populate Sample Database", ImVec2(-FLT_MIN, 20.0f)))
         {

@@ -66,12 +66,17 @@ void AnimationEngine::unregister_skinned_model(std::shared_ptr<SkinnedModel> con
 
 void AnimationEngine::register_motion_matching_handler(std::shared_ptr<MotionMatchingSampler>& handler)
 {
-    m_motion_matching_settings = handler;
+    m_motion_matching_sampler = handler;
 }
 
 void AnimationEngine::count_motion_matching_handlers(i8 delta)
 {
     m_handler_count += delta;
+}
+
+std::weak_ptr<MotionMatchingSampler> AnimationEngine::get_motion_matching_sampler() const
+{
+    return m_motion_matching_sampler;
 }
 
 glm::mat4* AnimationEngine::get_skinning_matrices()
