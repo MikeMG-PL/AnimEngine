@@ -99,6 +99,33 @@ void DebugDrawing::update()
         entity->destroy_immediate();
 }
 
+void DebugDrawing::update_editor()
+{
+    Component::update_editor();
+
+    switch (m_type)
+    {
+    case DrawingType::Sphere:
+        set_radius(m_radius);
+        break;
+
+    case DrawingType::Box:
+        set_extents(m_extents);
+        break;
+
+    default:
+        std::unreachable();
+    }
+
+    if (glm::abs(m_lifetime) < 0.00001) // Epsilon
+        return;
+
+    m_current_time += delta_time;
+
+    if (m_current_time > m_lifetime)
+        entity->destroy_immediate();
+}
+
 void DebugDrawing::uninitialize()
 {
     Component::uninitialize();
