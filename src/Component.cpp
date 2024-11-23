@@ -37,6 +37,10 @@ void Component::update()
 {
 }
 
+void Component::update_editor()
+{
+}
+
 void Component::on_enabled()
 {
 }

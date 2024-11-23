@@ -24,6 +24,7 @@ public:
     virtual void awake();
     virtual void start();
     virtual void update();
+    virtual void update_editor();
     virtual void on_enabled();
     virtual void on_disabled();
     virtual void on_destroyed();

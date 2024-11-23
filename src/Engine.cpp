@@ -191,6 +191,7 @@ void Engine::run()
         else
         {
             AnimationEngine::get_instance()->draw_animation_preview();
+            MainScene::get_instance()->update_editor(); // Update in Editor mode or when game is paused
         }
 
         Renderer::get_instance()->render();
