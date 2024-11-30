@@ -22,8 +22,9 @@ public:
     float path_scale = 1.0f;
 
 private:
-    std::shared_ptr<Curve> motion_matching_path = nullptr;
+    std::vector<std::shared_ptr<Entity>> m_cached_line = {};
+    std::shared_ptr<Curve> m_motion_matching_path = nullptr;
     std::shared_ptr<std::vector<Sample>> m_sample_database_ref = nullptr;
-    std::vector<std::shared_ptr<DebugDrawing>> m_cached_line = {};
     u16 m_line_points_num = 256;
+    bool m_first_update_pass = true;
 };
