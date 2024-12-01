@@ -60,13 +60,12 @@ void MotionMatchingSampler::populate_sample_database()
         float const sample_rate_ms = sample_rate * 1000.0f;
         float const sample_start_time = min_margin + feature_num * sample_rate_ms;
         float const sample_end_time = max_margin - feature_num * sample_rate_ms;
-        u32 const num_samples =
-            (static_cast<u32>(sample_end_time) - static_cast<u32>(sample_start_time)) / static_cast<u32>(sample_rate_ms); // Double check this formula!
+        u32 const num_samples = (static_cast<u32>(sample_end_time) - static_cast<u32>(sample_start_time))
+                              / static_cast<u32>(sample_rate_ms); // Double check this formula!
 
         if (sample_end_time - sample_start_time < 0)
         {
-            log("Clip \"" + assets->at(asset_id).path + "\" too short to sample with current rate, skipping...",
-                DebugType::Error);
+            log("Clip \"" + assets->at(asset_id).path + "\" too short to sample with current rate, skipping...", DebugType::Error);
             continue;
         }
 
@@ -153,7 +152,20 @@ void MotionMatchingSampler::clear_log()
 
 glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const
 {
-    glm::mat4 const root_matrix = model->animation.bones[0].local_transform;
+    // Choose not the 0-th matrix (turned out that the order might be a bit off...) but FIND ROOT MATRICES by name
+    // Of course finding by name is bug-prone, but this looks as the best quick fix for now
+    u32 root_id = 0;
+
+    for (u32 i = 0; i < model->animation.bones.size(); i++)
+    {
+        if (model->animation.bones[i].name.contains("root") || model->animation.bones[i].name.contains("Root"))
+        {
+            root_id = i;
+            break;
+        }
+    }
+
+    glm::mat4 const root_matrix = model->animation.bones[root_id].local_transform;
     glm::quat q = {};
     glm::vec3 pos = {};
     glm::vec3 scale = {};
@@ -167,7 +179,20 @@ glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<Skin
 
 glm::vec3 MotionMatchingSampler::calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const
 {
-    glm::mat4 const hips_matrix = model->animation.bones[1].local_transform;
+    // Choose not the 1-th matrix (turned out that the order might be a bit off...) but FIND HIPS MATRICES by name
+    // Of course finding by name is bug-prone, but this looks as the best quick fix for now
+    u32 hips_id = 0;
+
+    for (u32 i = 0; i < model->animation.bones.size(); i++)
+    {
+        if (model->animation.bones[i].name.contains("hips") || model->animation.bones[i].name.contains("Hips"))
+        {
+            hips_id = i;
+            break;
+        }
+    }
+
+    glm::mat4 const hips_matrix = model->animation.bones[hips_id].local_transform;
     glm::quat q = {};
     glm::vec3 pos = {};
     glm::vec3 scale = {};
