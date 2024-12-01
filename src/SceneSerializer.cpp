@@ -420,6 +420,7 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
         out << YAML::Key << "ComponentName" << YAML::Value << "MotionMatchingControllerComponent";
         out << YAML::Key << "guid" << YAML::Value << motionmatchingcontroller->guid;
         out << YAML::Key << "custom_name" << YAML::Value << motionmatchingcontroller->custom_name;
+        out << YAML::Key << "path_point_container" << YAML::Value << motionmatchingcontroller->path_point_container;
         out << YAML::Key << "path_scale" << YAML::Value << motionmatchingcontroller->path_scale;
         out << YAML::EndMap;
     }
@@ -1717,6 +1718,10 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
         {
             auto const deserialized_component =
                 std::dynamic_pointer_cast<class MotionMatchingController>(get_from_pool(component["guid"].as<std::string>()));
+            if (component["path_point_container"].IsDefined())
+            {
+                deserialized_component->path_point_container = component["path_point_container"].as<std::weak_ptr<Entity>>();
+            }
             if (component["path_scale"].IsDefined())
             {
                 deserialized_component->path_scale = component["path_scale"].as<float>();

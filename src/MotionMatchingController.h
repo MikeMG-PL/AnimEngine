@@ -12,6 +12,7 @@ public:
 
     virtual void initialize() override;
     virtual void update_editor() override;
+    virtual void awake() override;
 
 #if EDITOR
     virtual void draw_editor() override;
@@ -19,6 +20,7 @@ public:
 
     void draw_path();
 
+    std::weak_ptr<Entity> path_point_container = {};
     float path_scale = 1.0f;
 
 private:

@@ -21,6 +21,12 @@ void MotionMatchingController::initialize()
 
     auto const sampler = AnimationEngine::get_instance()->get_motion_matching_sampler();
     m_sample_database_ref = std::make_shared<std::vector<Sample>>(sampler.lock()->sample_database);
+
+    if (path_point_container.expired())
+    {
+        path_point_container = Entity::create("Path Point Container");
+        path_point_container.lock()->transform->set_parent(entity->transform);
+    }
 }
 
 void MotionMatchingController::update_editor()
@@ -41,19 +47,18 @@ void MotionMatchingController::update_editor()
             m_motion_matching_path = entity->get_component<Curve>();
         }
 
-        // for (u32 i = 0; i < m_line_points_num; i++)
-        // {
-        //     auto const e = Debug::draw_debug_sphere({0.0f, 0.0f, 0.0f}, 0.07f);
-        //     e->transform->set_parent(entity->transform);
-        //     e->name = "PATH_DEBUG_POINT_" + std::to_string(e->hashed_guid);
-        //     e->get_component<Model>()->set_enabled(false);
-        //     m_cached_line.emplace_back(e);
-        // }
-
         m_first_update_pass = false;
     }
 
     draw_path();
+}
+
+void MotionMatchingController::awake()
+{
+    Component::awake();
+    path_point_container.lock()->transform->set_parent(nullptr);
+    path_point_container.lock()->transform->set_position(entity->transform->get_position());
+    path_point_container.lock()->transform->set_euler_angles(entity->transform->get_euler_angles());
 }
 
 #if EDITOR
@@ -74,7 +79,8 @@ void MotionMatchingController::draw_editor()
 
 void MotionMatchingController::draw_path()
 {
-    glm::vec3 world_point_pos = entity->transform->get_position();
+    // glm::vec3 world_point_pos = entity->transform->get_position();
+    glm::vec3 world_point_pos = {0.0f, 0.0f, 0.0f};
 
     if (m_motion_matching_path == nullptr)
         return;
@@ -103,19 +109,23 @@ void MotionMatchingController::draw_path()
                 previous_point_pos = AK::convert_2d_to_3d(m_motion_matching_path->curve[i - 1]);
 
             auto point_pos = AK::convert_2d_to_3d(m_motion_matching_path->curve[i]) - previous_point_pos;
+
+            // Likely ImPlot data stores data with X axis inverted, this fixes that
             point_pos.x = -point_pos.x;
-            world_point_pos += point_pos * path_scale;
+
+            // ...and for some strange reason, the path in the world is rotated by -90 degrees. So we multiply it by quaternion representing 90 degrees rotation
+            world_point_pos += glm::quat(0.7f, 0.0f, 0.7f, 0.0f) * point_pos * path_scale;
 
             if (m_cached_line[i] == nullptr)
             {
                 auto const e = Debug::draw_debug_sphere({0.0f, 0.0f, 0.0f}, 0.07f);
-                e->transform->set_parent(entity->transform);
+                e->transform->set_parent(path_point_container.lock()->transform);
                 e->name = "PATH_DEBUG_POINT_" + std::to_string(e->hashed_guid);
                 e->get_component<Model>()->set_enabled(false);
                 m_cached_line[i] = e;
             }
 
-            m_cached_line[i]->transform->set_position(world_point_pos);
+            m_cached_line[i]->transform->set_local_position(world_point_pos);
             m_cached_line[i]->get_component<Model>()->set_enabled(true);
         }
 
@@ -124,7 +134,7 @@ void MotionMatchingController::draw_path()
             if (m_cached_line[i] == nullptr)
             {
                 auto const e = Debug::draw_debug_sphere({0.0f, 0.0f, 0.0f}, 0.07f);
-                e->transform->set_parent(entity->transform);
+                e->transform->set_parent(path_point_container.lock()->transform);
                 e->name = "PATH_DEBUG_POINT_" + std::to_string(e->hashed_guid);
                 m_cached_line[i] = e;
             }
