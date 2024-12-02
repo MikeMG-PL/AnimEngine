@@ -99,15 +99,24 @@ void MotionMatchingSampler::populate_sample_database()
 
                 if (j > 0)
                     sample.future_features.emplace_back(feature);
-
-                log("      Feature " + std::to_string(j) + ":" + " time: " + std::to_string(temp_skinned_model->animation.current_time)
-                    + " ms, pos: " + std::to_string(feature_pos.x) + ", " + std::to_string(feature_pos.y) + ", "
-                    + std::to_string(feature_pos.z) + ", facing direction: " + std::to_string(facing_direction.x) + ", "
-                    + std::to_string(facing_direction.y) + ", " + std::to_string(facing_direction.z));
             }
 
             sample.clip_local_time = temp_skinned_model->animation.current_time;
             sample.clip_id = asset_id;
+
+            // Sample relativized, returning feature vector for convenient display
+            std::vector<Feature> features = relativize_sample(sample);
+
+            for (i32 j = -feature_num; j <= feature_num; j++)
+            {
+                Feature const f = features[j + feature_num];
+
+                log("      Feature " + std::to_string(j) + ":"
+                    + " time: " + std::to_string(temp_skinned_model->animation.current_time + j * sample_rate_ms)
+                    + " ms, pos: " + std::to_string(f.position.x) + ", " + std::to_string(f.position.y) + ", "
+                    + std::to_string(f.position.z) + ", facing direction: " + std::to_string(f.facing_direction.x) + ", "
+                    + std::to_string(f.facing_direction.y) + ", " + std::to_string(f.facing_direction.z));
+            }
 
             sample_database.emplace_back(sample);
         }
@@ -148,6 +157,38 @@ void MotionMatchingSampler::log(std::string const& message, DebugType type)
 void MotionMatchingSampler::clear_log()
 {
     debug_messages.clear();
+}
+
+std::vector<Feature> MotionMatchingSampler::relativize_sample(Sample& sample) const
+{
+    std::vector<Feature> f = {};
+
+    // Animation clip space
+    glm::vec3 const current_pos_clip_space = sample.current_feature.position;
+    glm::vec3 const current_facing_dir_clip_space = sample.current_feature.facing_direction;
+
+    // Transforming to feature space
+    sample.current_feature.position = {0.0f, 0.0f, 0.0f};
+    sample.current_feature.facing_direction = {0.0f, 0.0f, 1.0f}; // Forward facing direction
+
+    for (auto& past_feature : sample.past_features)
+    {
+        past_feature.position = current_pos_clip_space - past_feature.position;
+        past_feature.facing_direction = AK::Math::transform_to_new_space_z(past_feature.facing_direction, current_facing_dir_clip_space);
+        f.emplace_back(past_feature);
+    }
+
+    f.emplace_back(sample.current_feature);
+
+    for (auto& future_feature : sample.future_features)
+    {
+        future_feature.position = current_pos_clip_space - future_feature.position;
+        future_feature.facing_direction =
+            AK::Math::transform_to_new_space_z(future_feature.facing_direction, current_facing_dir_clip_space);
+        f.emplace_back(future_feature);
+    }
+
+    return f;
 }
 
 glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const

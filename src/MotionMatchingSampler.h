@@ -53,6 +53,7 @@ public:
     std::vector<Sample> sample_database = {};
 
 private:
+    std::vector<Feature> relativize_sample(Sample& sample) const;
     glm::vec3 calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const;
     glm::vec3 calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const;
 };
