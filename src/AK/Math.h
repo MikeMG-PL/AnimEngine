@@ -26,6 +26,7 @@ public:
     static glm::vec2 get_perpendicular_axis(std::array<glm::vec2, 4> const& passed_corners, u8 const index);
     static glm::vec2 get_normal(glm::vec2 const& v);
     static glm::vec2 project_on_axis(std::array<glm::vec2, 4> const& vertices, glm::vec2 const& axis);
+    static glm::vec3 transform_to_new_space_z(glm::vec3 const& to_new_space, glm::vec3 const& new_space_z);
 
     static float get_ranges_overlap_length(glm::vec2 const& a, glm::vec2 const& b);
     static bool are_ranges_overlapping(glm::vec2 const& a, glm::vec2 const& b);

@@ -51,6 +51,27 @@ glm::vec2 Math::project_on_axis(std::array<glm::vec2, 4> const& vertices, glm::v
     return {min, max};
 }
 
+glm::vec3 Math::transform_to_new_space_z(glm::vec3 const& to_new_space, glm::vec3 const& new_space_z)
+{
+    // to_new_space - the vector we want to transform to the new space
+    // new_space_z - this vector will be a new unit vector
+    // new_z - THIS IS THE NEW UNIT VECTOR for Z axis
+
+    glm::vec3 const x = {1.0f, 0.0f, 0.0f};
+    glm::vec3 const y = {0.0f, 1.0f, 0.0f};
+    glm::vec3 const z = {0.0f, 0.0f, 1.0f};
+
+    glm::vec3 const new_z = glm::normalize(new_space_z);
+    glm::vec3 const new_y = glm::normalize(glm::cross(new_z, x));
+    glm::vec3 const new_x = glm::cross(new_y, new_z);
+
+    glm::mat3 const T(new_x, new_y, new_z);
+
+    // Transpose is inverse in this case
+    auto const result = glm::transpose(T) * to_new_space;
+    return result;
+}
+
 bool Math::are_ranges_overlapping(glm::vec2 const& a, glm::vec2 const& b)
 {
     // A and B are ranges and it's assumed that a.x <= a.y and b.x <= b.y
