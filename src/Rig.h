@@ -45,6 +45,7 @@ struct Bone
     u32 num_rotations = 0;
 
     glm::mat4 local_transform = glm::mat4(1.0f);
+    glm::mat4 model_transform = glm::mat4(1.0f);
     std::string name = "";
     i32 id = -1;
 

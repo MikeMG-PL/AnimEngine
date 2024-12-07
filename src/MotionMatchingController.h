@@ -19,6 +19,8 @@ public:
 #endif
 
     void draw_path();
+    void sample_in_runtime();
+    Sample generate_first_sample();
 
     std::weak_ptr<Entity> path_point_container = {};
     float path_scale = 1.0f;
@@ -29,4 +31,5 @@ private:
     std::shared_ptr<std::vector<Sample>> m_sample_database_ref = nullptr;
     u16 m_line_points_num = 256;
     bool m_first_update_pass = true;
+    float m_online_sample_rate = 0.0f;
 };

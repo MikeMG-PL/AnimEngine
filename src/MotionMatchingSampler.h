@@ -14,7 +14,9 @@ constexpr u8 feature_num = 3;
 
 struct Feature
 {
-    glm::vec3 position = {};
+    glm::vec3 root_position = {};
+    glm::vec3 left_foot_position = {};
+    glm::vec3 right_foot_position = {};
     glm::vec3 facing_direction = {};
 };
 
@@ -51,9 +53,14 @@ public:
 
     // The most important thing there indeed ;)
     std::vector<Sample> sample_database = {};
+    float offline_average_root_step = 0.0f;
+    float offline_accumulated_root_step = 0.0f;
 
 private:
     std::vector<Feature> relativize_sample(Sample& sample) const;
     glm::vec3 calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const;
+    std::vector<glm::vec3> calculate_feet_positions(std::shared_ptr<SkinnedModel> const& model) const;
     glm::vec3 calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const;
+    void calculate_average_root_step();
+    void accumulate_root_step(u32 sample_id);
 };

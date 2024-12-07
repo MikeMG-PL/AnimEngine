@@ -63,7 +63,7 @@ void MotionMatchingSampler::populate_sample_database()
         u32 const num_samples = (static_cast<u32>(sample_end_time) - static_cast<u32>(sample_start_time))
                               / static_cast<u32>(sample_rate_ms); // Double check this formula!
 
-        if (sample_end_time - sample_start_time < 0)
+        if (sample_end_time - sample_start_time < 0 || num_samples < 1)
         {
             log("Clip \"" + assets->at(asset_id).path + "\" too short to sample with current rate, skipping...", DebugType::Error);
             continue;
@@ -86,10 +86,13 @@ void MotionMatchingSampler::populate_sample_database()
 
                 glm::vec3 feature_pos = calculate_feature_position(temp_skinned_model);
                 glm::vec3 facing_direction = calculate_facing_direction(temp_skinned_model);
+                std::vector<glm::vec3> feet_positions = calculate_feet_positions(temp_skinned_model);
 
                 Feature feature = {};
-                feature.position = feature_pos;
+                feature.root_position = feature_pos;
                 feature.facing_direction = facing_direction;
+                feature.left_foot_position = feet_positions[0];
+                feature.right_foot_position = feet_positions[1];
 
                 if (j < 0)
                     sample.past_features.emplace_back(feature);
@@ -99,6 +102,8 @@ void MotionMatchingSampler::populate_sample_database()
 
                 if (j > 0)
                     sample.future_features.emplace_back(feature);
+
+                // Calculating average feature distance
             }
 
             sample.clip_local_time = temp_skinned_model->animation.current_time;
@@ -113,14 +118,21 @@ void MotionMatchingSampler::populate_sample_database()
 
                 log("      Feature " + std::to_string(j) + ":"
                     + " time: " + std::to_string(temp_skinned_model->animation.current_time + j * sample_rate_ms)
-                    + " ms, pos: " + std::to_string(f.position.x) + ", " + std::to_string(f.position.y) + ", "
-                    + std::to_string(f.position.z) + ", facing direction: " + std::to_string(f.facing_direction.x) + ", "
+                    + " ms, pos: " + std::to_string(f.root_position.x) + ", " + std::to_string(f.root_position.y) + ", "
+                    + std::to_string(f.root_position.z) + ", left foot position: " + std::to_string(f.left_foot_position.x) + ", "
+                    + std::to_string(f.left_foot_position.y) + ", " + std::to_string(f.left_foot_position.z)
+                    + ", right foot position: " + std::to_string(f.right_foot_position.x) + ", " + std::to_string(f.right_foot_position.y)
+                    + ", " + std::to_string(f.right_foot_position.z) + ", facing direction: " + std::to_string(f.facing_direction.x) + ", "
                     + std::to_string(f.facing_direction.y) + ", " + std::to_string(f.facing_direction.z));
             }
 
             sample_database.emplace_back(sample);
+
+            accumulate_root_step(i);
         }
     }
+
+    calculate_average_root_step();
 
     /////////////////////////////////////////////////////////////////
     AnimationEngine::get_instance()->allow_animation_previews = true;
@@ -164,17 +176,37 @@ std::vector<Feature> MotionMatchingSampler::relativize_sample(Sample& sample) co
     std::vector<Feature> f = {};
 
     // Animation clip space
-    glm::vec3 const current_pos_clip_space = sample.current_feature.position;
-    glm::vec3 const current_facing_dir_clip_space = sample.current_feature.facing_direction;
+    glm::vec3 const current_root_pos_clip_space = sample.current_feature.root_position;
+    glm::vec3 const current_left_foot_pos_clip_space = sample.current_feature.left_foot_position;
+    glm::vec3 const current_right_foot_pos_clip_space = sample.current_feature.right_foot_position;
 
-    // Transforming to feature space
-    sample.current_feature.position = {0.0f, 0.0f, 0.0f};
+    glm::vec3 const reference_direction = sample.current_feature.facing_direction;
+    glm::vec3 diff = glm::vec3(0.0f);
+
+    // Transforming to feature/facing space
+    sample.current_feature.root_position = {0.0f, 0.0f, 0.0f};
+
+    diff = current_left_foot_pos_clip_space - current_root_pos_clip_space;
+    sample.current_feature.left_foot_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
+    diff = current_right_foot_pos_clip_space - current_root_pos_clip_space;
+    sample.current_feature.right_foot_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
     sample.current_feature.facing_direction = {0.0f, 0.0f, 1.0f}; // Forward facing direction
 
     for (auto& past_feature : sample.past_features)
     {
-        past_feature.position = current_pos_clip_space - past_feature.position;
-        past_feature.facing_direction = AK::Math::transform_to_new_space_z(past_feature.facing_direction, current_facing_dir_clip_space);
+        diff = past_feature.root_position - current_root_pos_clip_space;
+        past_feature.root_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
+        diff = past_feature.left_foot_position - current_root_pos_clip_space;
+        past_feature.left_foot_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
+        diff = past_feature.right_foot_position - current_root_pos_clip_space;
+        past_feature.right_foot_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
+        past_feature.facing_direction = AK::Math::transform_to_new_space_z(past_feature.facing_direction, reference_direction);
+
         f.emplace_back(past_feature);
     }
 
@@ -182,9 +214,17 @@ std::vector<Feature> MotionMatchingSampler::relativize_sample(Sample& sample) co
 
     for (auto& future_feature : sample.future_features)
     {
-        future_feature.position = current_pos_clip_space - future_feature.position;
-        future_feature.facing_direction =
-            AK::Math::transform_to_new_space_z(future_feature.facing_direction, current_facing_dir_clip_space);
+        diff = future_feature.root_position - current_root_pos_clip_space;
+        future_feature.root_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
+        diff = future_feature.left_foot_position - current_root_pos_clip_space;
+        future_feature.left_foot_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
+        diff = future_feature.right_foot_position - current_root_pos_clip_space;
+        future_feature.right_foot_position = AK::Math::transform_to_new_space_z(diff, reference_direction);
+
+        future_feature.facing_direction = AK::Math::transform_to_new_space_z(future_feature.facing_direction, reference_direction);
+
         f.emplace_back(future_feature);
     }
 
@@ -218,6 +258,73 @@ glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<Skin
     return pos;
 }
 
+std::vector<glm::vec3> MotionMatchingSampler::calculate_feet_positions(std::shared_ptr<SkinnedModel> const& model) const
+{
+    std::vector<glm::vec3> feet_positions = {};
+
+    // FIND FEET MATRICES by name
+    // Of course finding by name is bug-prone, but this looks as the best quick fix for now
+    // 0-th index is left foot, 1-th index is right
+
+    // Left
+    {
+        u32 left_foot_id = 0;
+
+        for (u32 i = 0; i < model->animation.bones.size(); i++)
+        {
+            if (model->animation.bones[i].name.contains("LeftFoot"))
+            {
+                left_foot_id = i;
+                break;
+            }
+        }
+
+        glm::mat4 const left_foot_matrix = model->animation.bones[left_foot_id].model_transform;
+        glm::quat q = {};
+        glm::vec3 pos = {};
+        glm::vec3 scale = {};
+        glm::vec3 skew = {};
+        glm::vec4 perspective = {};
+
+        decompose(left_foot_matrix, scale, q, pos, skew, perspective);
+
+        // 2D navigation
+        pos.y = 0.0f;
+
+        feet_positions.emplace_back(pos);
+    }
+
+    // Right
+    {
+        u32 right_foot_id = 0;
+
+        for (u32 i = 0; i < model->animation.bones.size(); i++)
+        {
+            if (model->animation.bones[i].name.contains("RightFoot"))
+            {
+                right_foot_id = i;
+                break;
+            }
+        }
+
+        glm::mat4 const right_foot_matrix = model->animation.bones[right_foot_id].model_transform;
+        glm::quat q = {};
+        glm::vec3 pos = {};
+        glm::vec3 scale = {};
+        glm::vec3 skew = {};
+        glm::vec4 perspective = {};
+
+        decompose(right_foot_matrix, scale, q, pos, skew, perspective);
+
+        // 2D navigation
+        pos.y = 0.0f;
+
+        feet_positions.emplace_back(pos);
+    }
+
+    return feet_positions;
+}
+
 glm::vec3 MotionMatchingSampler::calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const
 {
     // Choose not the 1-th matrix (turned out that the order might be a bit off...) but FIND HIPS MATRICES by name
@@ -247,4 +354,18 @@ glm::vec3 MotionMatchingSampler::calculate_facing_direction(std::shared_ptr<Skin
     facing_direction = normalize(facing_direction);
 
     return facing_direction;
+}
+
+void MotionMatchingSampler::calculate_average_root_step()
+{
+    offline_average_root_step = offline_accumulated_root_step / static_cast<float>(sample_database.size());
+}
+
+void MotionMatchingSampler::accumulate_root_step(u32 sample_id)
+{
+    float distance = 0.0f;
+    distance = glm::distance(sample_database[sample_id].current_feature.root_position,
+                             sample_database[sample_id].past_features[feature_num - 1].root_position);
+
+    offline_accumulated_root_step += distance;
 }

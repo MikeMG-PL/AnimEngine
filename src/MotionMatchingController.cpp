@@ -59,6 +59,7 @@ void MotionMatchingController::awake()
     path_point_container.lock()->transform->set_parent(nullptr);
     path_point_container.lock()->transform->set_position(entity->transform->get_position());
     path_point_container.lock()->transform->set_euler_angles(entity->transform->get_euler_angles());
+    m_online_sample_rate = AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->sample_rate;
 }
 
 #if EDITOR
@@ -142,4 +143,15 @@ void MotionMatchingController::draw_path()
             m_cached_line[i]->get_component<Model>()->set_enabled(false);
         }
     }
+}
+
+void MotionMatchingController::sample_in_runtime()
+{
+}
+
+Sample MotionMatchingController::generate_first_sample()
+{
+    Sample sample = {};
+    // Not implemented yet
+    return sample;
 }

@@ -435,6 +435,8 @@ void SceneSerializer::auto_serialize_component(YAML::Emitter& out, std::shared_p
         out << YAML::Key << "sample_rate" << YAML::Value << motionmatchingsampler->sample_rate;
         out << YAML::Key << "always_latest_logs" << YAML::Value << motionmatchingsampler->always_latest_logs;
         out << YAML::Key << "sample_database" << YAML::Value << motionmatchingsampler->sample_database;
+        out << YAML::Key << "offline_average_root_step" << YAML::Value << motionmatchingsampler->offline_average_root_step;
+        out << YAML::Key << "offline_accumulated_root_step" << YAML::Value << motionmatchingsampler->offline_accumulated_root_step;
         out << YAML::EndMap;
     }
     else if (auto const nowprompttrigger = std::dynamic_pointer_cast<class NowPromptTrigger>(component); nowprompttrigger != nullptr)
@@ -1758,6 +1760,14 @@ void SceneSerializer::auto_deserialize_component(YAML::Node const& component, st
             if (component["sample_database"].IsDefined())
             {
                 deserialized_component->sample_database = component["sample_database"].as<std::vector<Sample>>();
+            }
+            if (component["offline_average_root_step"].IsDefined())
+            {
+                deserialized_component->offline_average_root_step = component["offline_average_root_step"].as<float>();
+            }
+            if (component["offline_accumulated_root_step"].IsDefined())
+            {
+                deserialized_component->offline_accumulated_root_step = component["offline_accumulated_root_step"].as<float>();
             }
             deserialized_entity->add_component(deserialized_component);
             deserialized_component->reprepare();
