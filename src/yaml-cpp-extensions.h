@@ -257,18 +257,22 @@ struct convert<Feature>
     static Node encode(Feature const& rhs)
     {
         Node node;
-        node.push_back(rhs.position);
+        node.push_back(rhs.root_position);
+        node.push_back(rhs.left_foot_position);
+        node.push_back(rhs.right_foot_position);
         node.push_back(rhs.facing_direction);
         return node;
     }
 
     static bool decode(Node const& node, Feature& rhs)
     {
-        if (!node.IsSequence() || node.size() != 2)
+        if (!node.IsSequence() || node.size() != 4)
             return false;
 
-        rhs.position = node[0].as<glm::vec3>();
-        rhs.facing_direction = node[1].as<glm::vec3>();
+        rhs.root_position = node[0].as<glm::vec3>();
+        rhs.left_foot_position = node[1].as<glm::vec3>();
+        rhs.right_foot_position = node[2].as<glm::vec3>();
+        rhs.facing_direction = node[3].as<glm::vec3>();
         return true;
     }
 };
@@ -778,7 +782,8 @@ inline Emitter& operator<<(YAML::Emitter& out, std::shared_ptr<Material> const& 
 inline Emitter& operator<<(YAML::Emitter& out, Feature const& feature)
 {
     out << YAML::Flow;
-    out << YAML::BeginSeq << feature.position << feature.facing_direction << YAML::EndSeq;
+    out << YAML::BeginSeq << feature.root_position << feature.left_foot_position << feature.right_foot_position << feature.facing_direction
+        << YAML::EndSeq;
     return out;
 }
 
