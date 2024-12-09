@@ -80,9 +80,6 @@ void MotionMatchingController::draw_editor()
 
 void MotionMatchingController::draw_path()
 {
-    // glm::vec3 world_point_pos = entity->transform->get_position();
-    glm::vec3 world_point_pos = {0.0f, 0.0f, 0.0f};
-
     if (m_motion_matching_path == nullptr)
         return;
 
@@ -105,17 +102,8 @@ void MotionMatchingController::draw_path()
 
         for (u32 i = 0; i < m_motion_matching_path->curve.size(); i++)
         {
-            glm::vec3 previous_point_pos = {0.0f, 0.0f, 0.0f};
-            if (i > 0)
-                previous_point_pos = AK::convert_2d_to_3d(m_motion_matching_path->curve[i - 1]);
-
-            auto point_pos = AK::convert_2d_to_3d(m_motion_matching_path->curve[i]) - previous_point_pos;
-
-            // Likely ImPlot data stores data with X axis inverted, this fixes that
-            point_pos.x = -point_pos.x;
-
-            // ...and for some strange reason, the path in the world is rotated by -90 degrees. So we multiply it by quaternion representing 90 degrees rotation
-            world_point_pos += glm::quat(0.7f, 0.0f, 0.7f, 0.0f) * point_pos * path_scale;
+            glm::vec2 point_pos = get_point_at_curve_by_index(i);
+            glm::vec3 world_pos = editor_to_world_curve_pos(point_pos);
 
             if (m_cached_line[i] == nullptr)
             {
@@ -126,7 +114,7 @@ void MotionMatchingController::draw_path()
                 m_cached_line[i] = e;
             }
 
-            m_cached_line[i]->transform->set_local_position(world_point_pos);
+            m_cached_line[i]->transform->set_local_position(world_pos);
             m_cached_line[i]->get_component<Model>()->set_enabled(true);
         }
 
@@ -154,4 +142,25 @@ Sample MotionMatchingController::generate_first_sample()
     Sample sample = {};
     // Not implemented yet
     return sample;
+}
+
+glm::vec3 MotionMatchingController::editor_to_world_curve_pos(glm::vec2 const& editor_pos)
+{
+    auto point_pos = AK::convert_2d_to_3d(editor_pos);
+
+    // Likely ImPlot data stores data with X axis inverted, this fixes that
+    point_pos.x = -point_pos.x;
+
+    // ...and for some strange reason, the path in the world is rotated by -90 degrees. So we multiply it by quaternion representing 90 degrees rotation
+    return glm::quat(0.7f, 0.0f, 0.7f, 0.0f) * point_pos * path_scale;
+}
+
+glm::vec2 MotionMatchingController::get_point_at_curve_by_index(u32 const index)
+{
+    glm::vec2 previous_point_pos = {0.0f, 0.0f};
+
+    if (index > 0)
+        previous_point_pos = m_motion_matching_path->curve[index - 1];
+
+    return m_motion_matching_path->curve[index];
 }

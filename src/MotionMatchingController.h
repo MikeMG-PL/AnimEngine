@@ -21,6 +21,8 @@ public:
     void draw_path();
     void sample_in_runtime();
     Sample generate_first_sample();
+    glm::vec3 editor_to_world_curve_pos(glm::vec2 const& editor_pos);
+    glm::vec2 get_point_at_curve_by_index(u32 const index);
 
     std::weak_ptr<Entity> path_point_container = {};
     float path_scale = 1.0f;
