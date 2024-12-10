@@ -13,6 +13,7 @@ public:
     virtual void initialize() override;
     virtual void update_editor() override;
     virtual void awake() override;
+    virtual void update() override;
 
 #if EDITOR
     virtual void draw_editor() override;
@@ -20,9 +21,11 @@ public:
 
     void draw_path();
     void sample_in_runtime();
-    Sample generate_first_sample();
+    // Sample generate_first_sample();
     glm::vec3 editor_to_world_curve_pos(glm::vec2 const& editor_pos);
+    glm::vec2 world_to_editor_curve_pos(glm::vec3 const& world_pos);
     glm::vec2 get_point_at_curve_by_index(u32 const index);
+    glm::vec3 get_nearest_point_on_curve(glm::vec3 const& position);
 
     std::weak_ptr<Entity> path_point_container = {};
     float path_scale = 1.0f;
