@@ -60,6 +60,24 @@ void MotionMatchingController::awake()
     path_point_container.lock()->transform->set_position(entity->transform->get_position());
     path_point_container.lock()->transform->set_euler_angles(entity->transform->get_euler_angles());
     m_online_sample_rate = AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->sample_rate;
+
+    // Set some default running clip to easily generate initial samples
+    entity->get_component<SkinnedModel>()->anim_path = "./res/anims/conv16_36_Anim.gltf";
+    entity->get_component<SkinnedModel>()->reprepare();
+    entity->get_component<SkinnedModel>()->animation.current_time = 2000.0f;
+}
+
+void MotionMatchingController::update()
+{
+    Component::update();
+
+    // auto const point = get_point_at_curve_by_index(80);
+    // auto const x = editor_to_world_curve_pos(point);
+    // auto const y = world_to_editor_curve_pos(x);
+    // auto const e = Debug::draw_debug_box(x, {0.0f, 0.0f, 0.0f}, {0.25f, 0.25f, 0.25f}, delta_time * 2.0f);
+    // e->transform->set_parent(path_point_container.lock()->transform);
+
+    get_nearest_point_on_curve(entity->transform->get_position());
 }
 
 #if EDITOR
@@ -152,7 +170,21 @@ glm::vec3 MotionMatchingController::editor_to_world_curve_pos(glm::vec2 const& e
     point_pos.x = -point_pos.x;
 
     // ...and for some strange reason, the path in the world is rotated by -90 degrees. So we multiply it by quaternion representing 90 degrees rotation
-    return glm::quat(0.7f, 0.0f, 0.7f, 0.0f) * point_pos * path_scale;
+    return glm::quat(0.707f, 0.0f, 0.707f, 0.0f) * point_pos * path_scale;
+}
+
+glm::vec2 MotionMatchingController::world_to_editor_curve_pos(glm::vec3 const& world_pos)
+{
+    // Undo the scale transformation
+    glm::vec3 const unscaled_pos = world_pos / path_scale;
+
+    // Undo the rotation transformation (apply inverse quaternion)
+    glm::vec3 unrotated_pos = glm::quat(0.707f, 0.0f, -0.707f, 0.0f) * unscaled_pos;
+
+    // Undo the x-axis inversion
+    unrotated_pos.x = -unrotated_pos.x;
+
+    return AK::convert_3d_to_2d(unrotated_pos);
 }
 
 glm::vec2 MotionMatchingController::get_point_at_curve_by_index(u32 const index)
@@ -163,4 +195,33 @@ glm::vec2 MotionMatchingController::get_point_at_curve_by_index(u32 const index)
         previous_point_pos = m_motion_matching_path->curve[index - 1];
 
     return m_motion_matching_path->curve[index];
+}
+
+glm::vec3 MotionMatchingController::get_nearest_point_on_curve(glm::vec3 const& position)
+{
+    auto const e = Entity::create_internal(".");
+    e->transform->set_parent(path_point_container.lock()->transform);
+    e->transform->set_position(position);
+
+    float nearest_distance = FLT_MAX;
+    u32 nearest_point = 0;
+
+    for (u32 i = 0; i < m_motion_matching_path->curve.size(); i++)
+    {
+        float const distance = glm::distance(editor_to_world_curve_pos(get_point_at_curve_by_index(i)), e->transform->get_local_position());
+        if (distance < nearest_distance)
+        {
+            nearest_distance = distance;
+            nearest_point = i;
+        }
+    }
+
+    auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(nearest_point)), 0.2f, delta_time * 2.0f);
+
+    d->transform->set_parent(path_point_container.lock()->transform);
+    glm::vec3 const world_position = d->transform->get_position();
+
+    Debug::log(std::to_string(world_position.x) + ", " + std::to_string(world_position.y) + ", " + std::to_string(world_position.z));
+
+    return world_position;
 }

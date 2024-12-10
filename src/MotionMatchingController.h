@@ -1,8 +1,7 @@
 #pragma once
 #include "Curve.h"
 #include "DebugDrawing.h"
-
-struct Sample;
+#include "MotionMatchingSampler.h"
 
 class MotionMatchingController : public Component
 {
@@ -13,6 +12,7 @@ public:
     virtual void initialize() override;
     virtual void update_editor() override;
     virtual void awake() override;
+    virtual void update() override;
 
 #if EDITOR
     virtual void draw_editor() override;
@@ -22,7 +22,9 @@ public:
     void sample_in_runtime();
     Sample generate_first_sample();
     glm::vec3 editor_to_world_curve_pos(glm::vec2 const& editor_pos);
+    glm::vec2 world_to_editor_curve_pos(glm::vec3 const& world_pos);
     glm::vec2 get_point_at_curve_by_index(u32 const index);
+    glm::vec3 get_nearest_point_on_curve(glm::vec3 const& position);
 
     std::weak_ptr<Entity> path_point_container = {};
     float path_scale = 1.0f;
@@ -33,5 +35,8 @@ private:
     std::shared_ptr<std::vector<Sample>> m_sample_database_ref = nullptr;
     u16 m_line_points_num = 256;
     bool m_first_update_pass = true;
-    float m_online_sample_rate = 0.0f;
+
+    // Online sampling
+    float m_online_sample_rate = 0.0f; // Assigned from MotionMatchingSampler
+    Sample m_current_online_sample = {};
 };
