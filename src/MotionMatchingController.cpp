@@ -62,9 +62,10 @@ void MotionMatchingController::awake()
     m_online_sample_rate = AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->sample_rate;
 
     // Set some default running clip to easily generate initial samples
-    entity->get_component<SkinnedModel>()->anim_path = "./res/anims/conv16_36_Anim.gltf";
-    entity->get_component<SkinnedModel>()->reprepare();
-    entity->get_component<SkinnedModel>()->animation.current_time = 2000.0f;
+    m_skinned_model_ref = entity->get_component<SkinnedModel>();
+    m_skinned_model_ref.lock()->anim_path = "./res/anims/conv16_36_Anim.gltf";
+    m_skinned_model_ref.lock()->reprepare();
+    m_skinned_model_ref.lock()->animation.current_time = 2000.0f;
 }
 
 void MotionMatchingController::update()
@@ -77,7 +78,8 @@ void MotionMatchingController::update()
     // auto const e = Debug::draw_debug_box(x, {0.0f, 0.0f, 0.0f}, {0.25f, 0.25f, 0.25f}, delta_time * 2.0f);
     // e->transform->set_parent(path_point_container.lock()->transform);
 
-    get_nearest_point_on_curve(entity->transform->get_position());
+    get_nearest_point_on_curve_pos(entity->transform->get_position());
+    sample_in_runtime();
 }
 
 #if EDITOR
@@ -153,6 +155,95 @@ void MotionMatchingController::draw_path()
 
 void MotionMatchingController::sample_in_runtime()
 {
+    Sample sample = {};
+    float saved_time = m_skinned_model_ref.lock()->animation.current_time;
+
+    for (i32 j = -feature_num; j <= 1; j++)
+    {
+        if (j <= 0)
+        {
+            float sample_rate_ms = m_online_sample_rate * 1000.0f;
+            float sample_start_time = m_skinned_model_ref.lock()->animation.current_time - sample_rate_ms * feature_num;
+            float const step = static_cast<float>(j) * sample_rate_ms;
+
+            m_skinned_model_ref.lock()->animation.current_time = sample_start_time + step;
+            // m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
+
+            glm::vec3 feature_pos = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
+            glm::vec3 facing_direction = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
+            std::vector<glm::vec3> feet_positions = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
+
+            Feature feature = {};
+            feature.root_position = feature_pos;
+            feature.facing_direction = facing_direction;
+            feature.left_foot_position = feet_positions[0];
+            feature.right_foot_position = feet_positions[1];
+
+            if (j < 0)
+                sample.past_features.emplace_back(feature);
+            else
+                sample.current_feature = feature;
+        }
+        else
+        {
+            u32 first_step_on_curve_id = get_nearest_point_on_curve_id(entity->transform->get_position());
+            glm::vec3 first_step_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
+
+            u32 next_point_on_curve_id = first_step_on_curve_id + 1;
+
+            auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(next_point_on_curve_id)), 0.2f,
+                                                    delta_time * 2.0f);
+            d->transform->set_parent(path_point_container.lock()->transform);
+            glm::vec3 next_point_pos = d->transform->get_position();
+
+            float distance = glm::distance(first_step_pos, next_point_pos);
+            float last_step = 0.0f;
+            while (distance < AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->offline_average_root_step)
+            {
+                glm::vec3 const a = next_point_pos;
+
+                first_step_on_curve_id = next_point_on_curve_id;
+                next_point_on_curve_id++;
+
+                auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(next_point_on_curve_id)),
+                                                        0.2f, delta_time * 2.0f);
+                d->transform->set_parent(path_point_container.lock()->transform);
+                glm::vec3 const b = d->transform->get_position();
+
+                last_step = glm::distance(a, b);
+                distance += last_step;
+
+                next_point_pos = b;
+                first_step_pos = a;
+            }
+
+            // When you draw it you can conclude that the point on AB vector where new sampled root should be is calculated with the formula:
+            float const new_root_pos_between_ab =
+                AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->offline_average_root_step - distance + last_step;
+
+            glm::vec3 ab = normalize(next_point_pos - first_step_pos);
+            glm::vec3 const world_root_next_pos = first_step_pos + ab * new_root_pos_between_ab;
+
+            Debug::draw_debug_sphere(world_root_next_pos, 0.4f, delta_time * 2.0f);
+
+            // Jest WYDAJNOSCIOWY DRAMAT, bede musial pozbyc sie metod opartych o spawnowanie debug drawingow xd
+        }
+
+        m_skinned_model_ref.lock()->animation.current_time = saved_time;
+        // m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
+
+        // if (j == 0)
+        //     sample.current_feature = feature;
+        //
+        // if (j > 0)
+        //     sample.future_features.emplace_back(feature);
+    }
+
+    // sample.clip_local_time = temp_skinned_model->animation.current_time;
+    // sample.clip_id = asset_id;
+
+    // // Sample relativized, returning feature vector for convenient display
+    // std::vector<Feature> features = relativize_sample(sample);
 }
 
 Sample MotionMatchingController::generate_first_sample()
@@ -197,7 +288,7 @@ glm::vec2 MotionMatchingController::get_point_at_curve_by_index(u32 const index)
     return m_motion_matching_path->curve[index];
 }
 
-glm::vec3 MotionMatchingController::get_nearest_point_on_curve(glm::vec3 const& position)
+u32 MotionMatchingController::get_nearest_point_on_curve_id(glm::vec3 const& position)
 {
     auto const e = Entity::create_internal(".");
     e->transform->set_parent(path_point_container.lock()->transform);
@@ -216,8 +307,14 @@ glm::vec3 MotionMatchingController::get_nearest_point_on_curve(glm::vec3 const& 
         }
     }
 
-    auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(nearest_point)), 0.2f, delta_time * 2.0f);
+    return nearest_point;
+}
 
+glm::vec3 MotionMatchingController::get_nearest_point_on_curve_pos(glm::vec3 const& position)
+{
+    u32 const nearest_point = get_nearest_point_on_curve_id(position);
+
+    auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(nearest_point)), 0.2f, delta_time * 2.0f);
     d->transform->set_parent(path_point_container.lock()->transform);
     glm::vec3 const world_position = d->transform->get_position();
 

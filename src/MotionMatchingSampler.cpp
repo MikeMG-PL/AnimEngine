@@ -102,8 +102,6 @@ void MotionMatchingSampler::populate_sample_database()
 
                 if (j > 0)
                     sample.future_features.emplace_back(feature);
-
-                // Calculating average feature distance
             }
 
             sample.clip_local_time = temp_skinned_model->animation.current_time;
@@ -171,7 +169,7 @@ void MotionMatchingSampler::clear_log()
     debug_messages.clear();
 }
 
-std::vector<Feature> MotionMatchingSampler::relativize_sample(Sample& sample) const
+std::vector<Feature> MotionMatchingSampler::relativize_sample(Sample& sample)
 {
     std::vector<Feature> f = {};
 
@@ -231,7 +229,7 @@ std::vector<Feature> MotionMatchingSampler::relativize_sample(Sample& sample) co
     return f;
 }
 
-glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<SkinnedModel> const& model) const
+glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<SkinnedModel> const& model)
 {
     // Choose not the 0-th matrix (turned out that the order might be a bit off...) but FIND ROOT MATRICES by name
     // Of course finding by name is bug-prone, but this looks as the best quick fix for now
@@ -258,7 +256,7 @@ glm::vec3 MotionMatchingSampler::calculate_feature_position(std::shared_ptr<Skin
     return pos;
 }
 
-std::vector<glm::vec3> MotionMatchingSampler::calculate_feet_positions(std::shared_ptr<SkinnedModel> const& model) const
+std::vector<glm::vec3> MotionMatchingSampler::calculate_feet_positions(std::shared_ptr<SkinnedModel> const& model)
 {
     std::vector<glm::vec3> feet_positions = {};
 
@@ -325,7 +323,7 @@ std::vector<glm::vec3> MotionMatchingSampler::calculate_feet_positions(std::shar
     return feet_positions;
 }
 
-glm::vec3 MotionMatchingSampler::calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model) const
+glm::vec3 MotionMatchingSampler::calculate_facing_direction(std::shared_ptr<SkinnedModel> const& model)
 {
     // Choose not the 1-th matrix (turned out that the order might be a bit off...) but FIND HIPS MATRICES by name
     // Of course finding by name is bug-prone, but this looks as the best quick fix for now
