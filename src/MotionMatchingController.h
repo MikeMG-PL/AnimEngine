@@ -23,7 +23,7 @@ public:
     Sample generate_first_sample();
     glm::vec3 editor_to_world_curve_pos(glm::vec2 const& editor_pos);
     glm::vec2 world_to_editor_curve_pos(glm::vec3 const& world_pos);
-    glm::vec2 get_point_at_curve_by_index(u32 index);
+    glm::vec2 get_point_on_curve_by_index(u32 index);
     u32 get_nearest_point_on_curve_id(glm::vec3 const& position);
     glm::vec3 get_nearest_point_on_curve_pos(glm::vec3 const& position);
 
@@ -38,7 +38,10 @@ private:
     u16 m_line_points_num = 256;
     bool m_first_update_pass = true;
 
+    float m_offline_average_root_step = 0.0f;
+
     // Online sampling
     float m_online_sample_rate = 0.0f; // Assigned from MotionMatchingSampler
     Sample m_current_online_sample = {};
+    float m_time = 0.0f;
 };

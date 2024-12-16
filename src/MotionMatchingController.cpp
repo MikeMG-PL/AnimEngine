@@ -60,26 +60,29 @@ void MotionMatchingController::awake()
     path_point_container.lock()->transform->set_position(entity->transform->get_position());
     path_point_container.lock()->transform->set_euler_angles(entity->transform->get_euler_angles());
     m_online_sample_rate = AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->sample_rate;
+    m_offline_average_root_step = AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->offline_average_root_step;
 
     // Set some default running clip to easily generate initial samples
-    m_skinned_model_ref = entity->get_component<SkinnedModel>();
-    m_skinned_model_ref.lock()->anim_path = "./res/anims/conv16_36_Anim.gltf";
-    m_skinned_model_ref.lock()->reprepare();
-    m_skinned_model_ref.lock()->animation.current_time = 2000.0f;
+    // m_skinned_model_ref = entity->get_component<SkinnedModel>();
+    // m_skinned_model_ref.lock()->anim_path = "./res/anims/conv16_36_Anim.gltf";
+    // m_skinned_model_ref.lock()->reprepare();
+    // m_skinned_model_ref.lock()->animation.current_time = 2000.0f;
+
+    m_current_online_sample = generate_first_sample();
 }
 
 void MotionMatchingController::update()
 {
     Component::update();
 
-    // auto const point = get_point_at_curve_by_index(80);
+    // auto const point = get_point_on_curve_by_index(80);
     // auto const x = editor_to_world_curve_pos(point);
     // auto const y = world_to_editor_curve_pos(x);
     // auto const e = Debug::draw_debug_box(x, {0.0f, 0.0f, 0.0f}, {0.25f, 0.25f, 0.25f}, delta_time * 2.0f);
     // e->transform->set_parent(path_point_container.lock()->transform);
 
     get_nearest_point_on_curve_pos(entity->transform->get_position());
-    sample_in_runtime();
+    // sample_in_runtime();
 }
 
 #if EDITOR
@@ -122,7 +125,7 @@ void MotionMatchingController::draw_path()
 
         for (u32 i = 0; i < m_motion_matching_path->curve.size(); i++)
         {
-            glm::vec2 point_pos = get_point_at_curve_by_index(i);
+            glm::vec2 point_pos = get_point_on_curve_by_index(i);
             glm::vec3 world_pos = editor_to_world_curve_pos(point_pos);
 
             if (m_cached_line[i] == nullptr)
@@ -155,101 +158,156 @@ void MotionMatchingController::draw_path()
 
 void MotionMatchingController::sample_in_runtime()
 {
-    Sample sample = {};
-    float saved_time = m_skinned_model_ref.lock()->animation.current_time;
+    m_time += static_cast<float>(delta_time);
 
-    for (i32 j = -feature_num; j <= 1; j++)
+    if (m_time < m_online_sample_rate)
+        return;
+
+    // === MOCK PAST ===
+    for (u32 i = 0; i < feature_num; i++)
     {
-        if (j <= 0)
+        m_current_online_sample.past_features[i] = {};
+    }
+
+    // === NOW & FUTURE ===
+
+    for (u32 i = 0; i <= feature_num; i++)
+    {
+        u32 first_step_on_curve_id = get_nearest_point_on_curve_id(entity->transform->get_position());
+        glm::vec3 first_step_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
+
+        u32 next_point_on_curve_id = first_step_on_curve_id + 1;
+
+        auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_on_curve_by_index(next_point_on_curve_id)), 0.2f,
+                                                delta_time * 2.0f);
+        d->transform->set_parent(path_point_container.lock()->transform);
+        glm::vec3 next_point_pos = d->transform->get_position();
+
+        float distance = glm::distance(first_step_pos, next_point_pos);
+        float last_step = 0.0f;
+        while (distance < m_offline_average_root_step)
         {
-            float sample_rate_ms = m_online_sample_rate * 1000.0f;
-            float sample_start_time = m_skinned_model_ref.lock()->animation.current_time - sample_rate_ms * feature_num;
-            float const step = static_cast<float>(j) * sample_rate_ms;
+            glm::vec3 const a = next_point_pos;
 
-            m_skinned_model_ref.lock()->animation.current_time = sample_start_time + step;
-            // m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
+            first_step_on_curve_id = next_point_on_curve_id;
+            next_point_on_curve_id++;
 
-            glm::vec3 feature_pos = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
-            glm::vec3 facing_direction = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
-            std::vector<glm::vec3> feet_positions = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
+            auto const d =
+                Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_on_curve_by_index(next_point_on_curve_id)), 0.2f, 0.0001f);
+            d->transform->set_parent(path_point_container.lock()->transform);
+            glm::vec3 const b = d->transform->get_position();
 
-            Feature feature = {};
-            feature.root_position = feature_pos;
-            feature.facing_direction = facing_direction;
-            feature.left_foot_position = feet_positions[0];
-            feature.right_foot_position = feet_positions[1];
+            last_step = glm::distance(a, b);
+            distance += last_step;
 
-            if (j < 0)
-                sample.past_features.emplace_back(feature);
-            else
-                sample.current_feature = feature;
+            next_point_pos = b;
+            first_step_pos = a;
+        }
+
+        // When you draw it you can conclude that the point on AB vector where new sampled root should be is calculated with the formula:
+        float const new_root_pos_between_ab = m_offline_average_root_step - distance + last_step;
+
+        glm::vec3 const ab = normalize(next_point_pos - first_step_pos);
+        glm::vec3 const world_root_next_pos = first_step_pos + ab * new_root_pos_between_ab;
+
+        Debug::draw_debug_sphere(world_root_next_pos, 0.4f, 0.0001f);
+
+        Feature feature = {};
+
+        if (i == 0)
+        {
+            feature.root_position = first_step_pos;
+
+            // TODO: A better prediction?
+            feature.left_foot_position = world_root_next_pos;
+            feature.right_foot_position = world_root_next_pos;
+
+            feature.facing_direction = ab;
+
+            m_current_online_sample.current_feature = feature;
         }
         else
         {
-            u32 first_step_on_curve_id = get_nearest_point_on_curve_id(entity->transform->get_position());
-            glm::vec3 first_step_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
+            feature.root_position = world_root_next_pos;
 
-            u32 next_point_on_curve_id = first_step_on_curve_id + 1;
+            // TODO: A better prediction?
+            feature.left_foot_position = world_root_next_pos;
+            feature.right_foot_position = world_root_next_pos;
 
-            auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(next_point_on_curve_id)), 0.2f,
-                                                    delta_time * 2.0f);
-            d->transform->set_parent(path_point_container.lock()->transform);
-            glm::vec3 next_point_pos = d->transform->get_position();
+            feature.facing_direction = ab;
 
-            float distance = glm::distance(first_step_pos, next_point_pos);
-            float last_step = 0.0f;
-            while (distance < AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->offline_average_root_step)
-            {
-                glm::vec3 const a = next_point_pos;
-
-                first_step_on_curve_id = next_point_on_curve_id;
-                next_point_on_curve_id++;
-
-                auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(next_point_on_curve_id)),
-                                                        0.2f, delta_time * 2.0f);
-                d->transform->set_parent(path_point_container.lock()->transform);
-                glm::vec3 const b = d->transform->get_position();
-
-                last_step = glm::distance(a, b);
-                distance += last_step;
-
-                next_point_pos = b;
-                first_step_pos = a;
-            }
-
-            // When you draw it you can conclude that the point on AB vector where new sampled root should be is calculated with the formula:
-            float const new_root_pos_between_ab =
-                AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->offline_average_root_step - distance + last_step;
-
-            glm::vec3 ab = normalize(next_point_pos - first_step_pos);
-            glm::vec3 const world_root_next_pos = first_step_pos + ab * new_root_pos_between_ab;
-
-            Debug::draw_debug_sphere(world_root_next_pos, 0.4f, delta_time * 2.0f);
-
-            // Jest WYDAJNOSCIOWY DRAMAT, bede musial pozbyc sie metod opartych o spawnowanie debug drawingow xd
+            m_current_online_sample.future_features.emplace_back(feature);
         }
-
-        m_skinned_model_ref.lock()->animation.current_time = saved_time;
-        // m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
-
-        // if (j == 0)
-        //     sample.current_feature = feature;
-        //
-        // if (j > 0)
-        //     sample.future_features.emplace_back(feature);
     }
 
-    // sample.clip_local_time = temp_skinned_model->animation.current_time;
-    // sample.clip_id = asset_id;
+    // === RELATIVIZING ===
 
-    // // Sample relativized, returning feature vector for convenient display
+    // Some relativizing here
     // std::vector<Feature> features = relativize_sample(sample);
+
+    // === PAST ===
+    for (u32 i = 0; i < feature_num - 1; i++)
+    {
+        m_current_online_sample.past_features[i] = m_current_online_sample.past_features[i - 1];
+    }
+
+    m_current_online_sample.past_features[m_current_online_sample.past_features.size() - 1] = m_current_online_sample.current_feature;
 }
 
 Sample MotionMatchingController::generate_first_sample()
 {
     Sample sample = {};
-    // Not implemented yet
+    Feature feature = {};
+
+    // Feature -3
+    feature.root_position = {-0.018072f, 0.004021f, -1.064458f};
+    feature.left_foot_position = {0.019885f, -0.074155f, 0.419956f};
+    feature.right_foot_position = {0.180776f, -0.074155f, 0.714577f};
+    feature.facing_direction = {0.177852f, 0.000000f, 0.984057f};
+    sample.past_features.emplace_back(feature);
+
+    // Feature -2
+    feature.root_position = {0.000803f, -0.074155f, -0.731986f};
+    feature.left_foot_position = {-0.008258f, -0.074155f, -0.830488f};
+    feature.right_foot_position = {-0.029776f, -0.074155f, -1.474204f};
+    feature.facing_direction = {0.141448f, 0.000000f, 0.989946f};
+    sample.past_features.emplace_back(feature);
+
+    // Feature -1
+    feature.root_position = {0.001385f, -0.066157f, -0.383387f};
+    feature.left_foot_position = {-0.134224f, -0.074155f, -0.710428f};
+    feature.right_foot_position = {0.005454f, -0.074155f, -0.917133f};
+    feature.facing_direction = {0.081737f, 0.000000f, 0.996654f};
+    sample.past_features.emplace_back(feature);
+
+    // Feature 0
+    feature.root_position = {0.000000f, 0.000000f, 0.000000f};
+    feature.left_foot_position = {-0.116665f, -0.074155f, -0.629486f};
+    feature.right_foot_position = {0.045025f, -0.074155f, -0.300803f};
+    feature.facing_direction = {0.000000f, 0.000000f, 1.000000f};
+    sample.current_feature = feature;
+
+    // Feature 1
+    feature.root_position = {-0.003410f, -0.049177f, 0.356194f};
+    feature.left_foot_position = {-0.022586f, -0.074155f, -0.432611f};
+    feature.right_foot_position = {0.078490f, -0.074155f, 0.282952f};
+    feature.facing_direction = {-0.016264f, 0.000000f, 0.999868f};
+    sample.future_features.emplace_back(feature);
+
+    // Feature 2
+    feature.root_position = {-0.019107f, -0.074155f, 0.699193f};
+    feature.left_foot_position = {0.015285f, -0.074155f, -0.097925f};
+    feature.right_foot_position = {0.125771f, -0.074155f, 0.604311f};
+    feature.facing_direction = {-0.009463f, 0.000000f, 0.999955f};
+    sample.future_features.emplace_back(feature);
+
+    // Feature 3
+    feature.root_position = {-0.001487f, -0.060330f, 1.063376f};
+    feature.left_foot_position = {0.019885f, -0.074155f, 0.419956f};
+    feature.right_foot_position = {0.180776f, -0.074155f, 0.714577f};
+    feature.facing_direction = {0.026722f, 0.000000f, 0.999643f};
+    sample.future_features.emplace_back(feature);
+
     return sample;
 }
 
@@ -278,7 +336,7 @@ glm::vec2 MotionMatchingController::world_to_editor_curve_pos(glm::vec3 const& w
     return AK::convert_3d_to_2d(unrotated_pos);
 }
 
-glm::vec2 MotionMatchingController::get_point_at_curve_by_index(u32 const index)
+glm::vec2 MotionMatchingController::get_point_on_curve_by_index(u32 const index)
 {
     glm::vec2 previous_point_pos = {0.0f, 0.0f};
 
@@ -299,7 +357,7 @@ u32 MotionMatchingController::get_nearest_point_on_curve_id(glm::vec3 const& pos
 
     for (u32 i = 0; i < m_motion_matching_path->curve.size(); i++)
     {
-        float const distance = glm::distance(editor_to_world_curve_pos(get_point_at_curve_by_index(i)), e->transform->get_local_position());
+        float const distance = glm::distance(editor_to_world_curve_pos(get_point_on_curve_by_index(i)), e->transform->get_local_position());
         if (distance < nearest_distance)
         {
             nearest_distance = distance;
@@ -314,7 +372,7 @@ glm::vec3 MotionMatchingController::get_nearest_point_on_curve_pos(glm::vec3 con
 {
     u32 const nearest_point = get_nearest_point_on_curve_id(position);
 
-    auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_at_curve_by_index(nearest_point)), 0.2f, delta_time * 2.0f);
+    auto const d = Debug::draw_debug_sphere(editor_to_world_curve_pos(get_point_on_curve_by_index(nearest_point)), 0.2f, delta_time * 2.0f);
     d->transform->set_parent(path_point_container.lock()->transform);
     glm::vec3 const world_position = d->transform->get_position();
 
