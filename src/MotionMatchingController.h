@@ -3,6 +3,10 @@
 #include "DebugDrawing.h"
 #include "MotionMatchingSampler.h"
 
+#include <stack>
+
+constexpr u8 mm_controller_debug_entity_pool = 255;
+
 class MotionMatchingController : public Component
 {
 public:
@@ -32,6 +36,7 @@ public:
 
 private:
     std::vector<std::shared_ptr<Entity>> m_cached_line = {};
+    std::stack<std::shared_ptr<Entity>> m_additional_debug_entity_pool = {};
     std::shared_ptr<Curve> m_motion_matching_path = nullptr;
     std::shared_ptr<std::vector<Sample>> m_sample_database_ref = nullptr;
     std::weak_ptr<SkinnedModel> m_skinned_model_ref = {};
