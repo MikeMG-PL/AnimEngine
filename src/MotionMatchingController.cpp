@@ -70,25 +70,12 @@ void MotionMatchingController::awake()
     m_online_sample_rate = AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->sample_rate;
     m_offline_average_root_step = AnimationEngine::get_instance()->get_motion_matching_sampler().lock()->offline_average_root_step;
     m_skinned_model_ref = entity->get_component<SkinnedModel>();
-
-    // Set some default running clip to easily generate initial samples
-
-    // m_skinned_model_ref.lock()->anim_path = "./res/anims/conv16_36_Anim.gltf";
-    // m_skinned_model_ref.lock()->reprepare();
-    // m_skinned_model_ref.lock()->animation.current_time = 2000.0f;
-
-    m_current_online_sample = generate_first_sample();
+    generate_first_queue();
 }
 
 void MotionMatchingController::update()
 {
     Component::update();
-
-    // auto const point = get_point_on_curve_by_index(80);
-    // auto const x = editor_to_world_curve_pos(point);
-    // auto const y = world_to_editor_curve_pos(x);
-    // auto const e = Debug::draw_debug_box(x, {0.0f, 0.0f, 0.0f}, {0.25f, 0.25f, 0.25f}, delta_time * 2.0f);
-    // e->transform->set_parent(path_point_container.lock()->transform);
 
     get_nearest_point_on_curve_pos(entity->transform->get_position());
     sample_in_runtime();
@@ -179,7 +166,6 @@ void MotionMatchingController::sample_in_runtime()
 
     // === FUTURE ===
 
-    // m_current_online_sample.future_features.clear();
     glm::vec3 ab = {};
     u32 first_step_on_curve_id = get_nearest_point_on_curve_id(entity->transform->get_position());
     glm::vec3 first_step_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
@@ -267,73 +253,42 @@ void MotionMatchingController::sample_in_runtime()
         }
     }
 
-    Feature const mock_past = {};
+    Feature const mock = {};
 
-    for (u32 j = 0; j < feature_num; j++)
-        sample_part_2.past_features.emplace_back(mock_past);
+    for (u32 i = 0; i < feature_num; i++)
+        sample_part_2.past_features.emplace_back(mock);
 
     // === RELATIVIZING FUTURE ===
     std::vector<Feature> features_part_2 = MotionMatchingSampler::relativize_sample(sample_part_2);
 
-    // === PAST ===
+    // === PAST & NOW ===
+    Feature current_feature = {};
 
     m_skinned_model_ref.lock()->enable_root_motion = false;
     AnimationEngine::get_instance()->allow_animation_previews = false;
 
-    float const current_anim_time = m_skinned_model_ref.lock()->animation.current_time;
-    // m_current_online_sample.past_features.clear();
-
-    for (i32 j = -feature_num; j <= 0; j++)
-    {
-        float const step = static_cast<float>(j) * m_online_sample_rate * 1000.0f;
-
-        m_skinned_model_ref.lock()->animation.current_time = current_anim_time + step;
-        m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
-
-        glm::vec3 feature_pos = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
-        glm::vec3 facing_direction = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
-        std::vector<glm::vec3> feet_positions = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
-
-        Feature feature = {};
-        feature.root_position = feature_pos;
-        feature.facing_direction = facing_direction;
-        feature.left_foot_position = feet_positions[0];
-        feature.right_foot_position = feet_positions[1];
-
-        if (j < 0)
-            sample_part_1.past_features.emplace_back(feature);
-
-        if (j == 0)
-            sample_part_1.current_feature = feature;
-    }
-
-    Feature const mock_future = {};
-
-    for (u32 j = 0; j < feature_num; j++)
-        sample_part_1.future_features.emplace_back(mock_future);
-
-    m_skinned_model_ref.lock()->animation.current_time = current_anim_time;
-    m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
+    glm::vec3 const root = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
+    std::vector<glm::vec3> const feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
+    glm::vec3 const facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
 
     m_skinned_model_ref.lock()->enable_root_motion = true;
     AnimationEngine::get_instance()->allow_animation_previews = true;
 
+    current_feature.root_position = root;
+    current_feature.left_foot_position = feet[0];
+    current_feature.right_foot_position = feet[1];
+    current_feature.facing_direction = facing;
+
+    for (u32 i = 0; i < feature_num; i++)
+        sample_part_1.future_features.emplace_back(mock);
+
+    sample_part_1.current_feature = current_feature;
+
+    for (u32 i = 0; i < feature_num; i++)
+        sample_part_1.past_features.emplace_back(m_past_feature_register[i]);
+
     // === RELATIVIZING PAST ===
     std::vector<Feature> features_part_1 = MotionMatchingSampler::relativize_sample(sample_part_1);
-
-    // // rewrite xssfasddddddddddddddddd!
-    // for (i32 j = -feature_num; j <= feature_num; j++)
-    // {
-    //     Feature const f = features_part_1[j + feature_num];
-    //
-    //     Debug::log("      Feature " + std::to_string(j) + ": pos: " + std::to_string(f.root_position.x) + ", "
-    //                + std::to_string(f.root_position.y) + ", " + std::to_string(f.root_position.z)
-    //                + ", left foot position: " + std::to_string(f.left_foot_position.x) + ", " + std::to_string(f.left_foot_position.y)
-    //                + ", " + std::to_string(f.left_foot_position.z) + ", right foot position: " + std::to_string(f.right_foot_position.x)
-    //                + ", " + std::to_string(f.right_foot_position.y) + ", " + std::to_string(f.right_foot_position.z)
-    //                + ", facing direction: " + std::to_string(f.facing_direction.x) + ", " + std::to_string(f.facing_direction.y) + ", "
-    //                + std::to_string(f.facing_direction.z));
-    // }
 
     m_current_online_sample.past_features.clear();
     m_current_online_sample.future_features.clear();
@@ -344,20 +299,20 @@ void MotionMatchingController::sample_in_runtime()
         m_current_online_sample.future_features.emplace_back(sample_part_2.future_features[i]);
     }
 
-    for (i32 j = -feature_num; j <= feature_num; j++)
+    for (i32 i = -feature_num; i <= feature_num; i++)
     {
         Feature f = {};
 
-        if (j < 0)
-            f = m_current_online_sample.past_features[j + feature_num];
+        if (i < 0)
+            f = m_current_online_sample.past_features[i + feature_num];
 
-        if (j == 0)
+        if (i == 0)
             f = m_current_online_sample.current_feature;
 
-        if (j > 0)
-            f = m_current_online_sample.future_features[j - 1];
+        if (i > 0)
+            f = m_current_online_sample.future_features[i - 1];
 
-        Debug::log("      Feature " + std::to_string(j) + ": pos: " + std::to_string(f.root_position.x) + ", "
+        Debug::log("      Feature " + std::to_string(i) + ": pos: " + std::to_string(f.root_position.x) + ", "
                    + std::to_string(f.root_position.y) + ", " + std::to_string(f.root_position.z)
                    + ", left foot position: " + std::to_string(f.left_foot_position.x) + ", " + std::to_string(f.left_foot_position.y)
                    + ", " + std::to_string(f.left_foot_position.z) + ", right foot position: " + std::to_string(f.right_foot_position.x)
@@ -367,135 +322,32 @@ void MotionMatchingController::sample_in_runtime()
     }
 
     // === UPDATING QUEUE ===
-
-    // Feature feature = {};
-    //
-    // m_skinned_model_ref.lock()->enable_root_motion = false;
-    // AnimationEngine::get_instance()->allow_animation_previews = false;
-    //
-    // glm::vec3 const root = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
-    // std::vector<glm::vec3> const feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
-    // glm::vec3 const facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
-    //
-    // m_skinned_model_ref.lock()->enable_root_motion = true;
-    // AnimationEngine::get_instance()->allow_animation_previews = true;
-    //
-    // feature.root_position = root;
-    // feature.left_foot_position = feet[0];
-    // feature.right_foot_position = feet[1];
-    // feature.facing_direction = facing;
-    //
-    // m_past_feature_register.pop_front();
-    // m_past_feature_register.emplace_back(feature, root);
-
-    //
-    // m_current_online_sample.past_features[m_current_online_sample.past_features.size() - 1] = cached_current_feature;
+    m_past_feature_register.pop_front();
+    m_past_feature_register.push_back(current_feature);
 }
 
-Sample MotionMatchingController::generate_first_sample()
+void MotionMatchingController::generate_first_queue()
 {
-    // ??????????????????
-
-    Sample sample = {};
     Feature feature = {};
 
     m_skinned_model_ref.lock()->enable_root_motion = false;
     AnimationEngine::get_instance()->allow_animation_previews = false;
 
-    auto const current_curve_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
-    auto const current_root_pos = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
+    auto const root = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
+    auto const feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
+    auto const facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
 
-    for (i32 i = -feature_num; i < 0; i++)
+    for (u32 i = 0; i < feature_num; i++)
     {
-        auto const root = current_curve_pos;
-        auto const feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
-        auto const facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
-
         feature.root_position = root;
-        feature.left_foot_position = feet[0] - current_root_pos + current_curve_pos;
-        feature.right_foot_position = feet[1] - current_root_pos + current_curve_pos;
+        feature.left_foot_position = feet[0];
+        feature.right_foot_position = feet[1];
         feature.facing_direction = facing;
-        sample.past_features.emplace_back(feature);
-
-        m_past_feature_register.emplace_back(feature, current_root_pos);
+        m_past_feature_register.push_back(feature);
     }
 
     m_skinned_model_ref.lock()->enable_root_motion = true;
     AnimationEngine::get_instance()->allow_animation_previews = true;
-
-    // // Feature -3
-    // feature.root_position = glm::vec3(0.0f);
-    // feature.left_foot_position = glm::vec3(0.0f);
-    // feature.right_foot_position = glm::vec3(0.0f);
-    // feature.facing_direction = glm::vec3(0.0f, 0.0f, 1.0f);
-    // sample.past_features.emplace_back(feature);
-    //
-    // // Feature -2
-    // feature.root_position = glm::vec3(0.0f);
-    // feature.left_foot_position = glm::vec3(0.0f);
-    // feature.right_foot_position = glm::vec3(0.0f);
-    // feature.facing_direction = glm::vec3(0.0f, 0.0f, 1.0f);
-    // sample.past_features.emplace_back(feature);
-    //
-    // // Feature -1
-    // feature.root_position = glm::vec3(0.0f);
-    // feature.left_foot_position = glm::vec3(0.0f);
-    // feature.right_foot_position = glm::vec3(0.0f);
-    // feature.facing_direction = glm::vec3(0.0f, 0.0f, 1.0f);
-    // sample.past_features.emplace_back(feature);
-
-    // other ones
-
-    // // Feature -3
-    // feature.root_position = {-0.018072f, 0.004021f, -1.064458f};
-    // feature.left_foot_position = {0.019885f, -0.074155f, 0.419956f};
-    // feature.right_foot_position = {0.180776f, -0.074155f, 0.714577f};
-    // feature.facing_direction = {0.177852f, 0.000000f, 0.984057f};
-    // sample.past_features.emplace_back(feature);
-    //
-    // // Feature -2
-    // feature.root_position = {0.000803f, -0.074155f, -0.731986f};
-    // feature.left_foot_position = {-0.008258f, -0.074155f, -0.830488f};
-    // feature.right_foot_position = {-0.029776f, -0.074155f, -1.474204f};
-    // feature.facing_direction = {0.141448f, 0.000000f, 0.989946f};
-    // sample.past_features.emplace_back(feature);
-    //
-    // // Feature -1
-    // feature.root_position = {0.001385f, -0.066157f, -0.383387f};
-    // feature.left_foot_position = {-0.134224f, -0.074155f, -0.710428f};
-    // feature.right_foot_position = {0.005454f, -0.074155f, -0.917133f};
-    // feature.facing_direction = {0.081737f, 0.000000f, 0.996654f};
-    // sample.past_features.emplace_back(feature);
-
-    // Feature 0
-    feature.root_position = {0.000000f, 0.000000f, 0.000000f};
-    feature.left_foot_position = {-0.116665f, -0.074155f, -0.629486f};
-    feature.right_foot_position = {0.045025f, -0.074155f, -0.300803f};
-    feature.facing_direction = {0.000000f, 0.000000f, 1.000000f};
-    sample.current_feature = feature;
-
-    // Feature 1
-    feature.root_position = {-0.003410f, -0.049177f, 0.356194f};
-    feature.left_foot_position = {-0.022586f, -0.074155f, -0.432611f};
-    feature.right_foot_position = {0.078490f, -0.074155f, 0.282952f};
-    feature.facing_direction = {-0.016264f, 0.000000f, 0.999868f};
-    sample.future_features.emplace_back(feature);
-
-    // Feature 2
-    feature.root_position = {-0.019107f, -0.074155f, 0.699193f};
-    feature.left_foot_position = {0.015285f, -0.074155f, -0.097925f};
-    feature.right_foot_position = {0.125771f, -0.074155f, 0.604311f};
-    feature.facing_direction = {-0.009463f, 0.000000f, 0.999955f};
-    sample.future_features.emplace_back(feature);
-
-    // Feature 3
-    feature.root_position = {-0.001487f, -0.060330f, 1.063376f};
-    feature.left_foot_position = {0.019885f, -0.074155f, 0.419956f};
-    feature.right_foot_position = {0.180776f, -0.074155f, 0.714577f};
-    feature.facing_direction = {0.026722f, 0.000000f, 0.999643f};
-    sample.future_features.emplace_back(feature);
-
-    return sample;
 }
 
 glm::vec3 MotionMatchingController::editor_to_world_curve_pos(glm::vec2 const& editor_pos)

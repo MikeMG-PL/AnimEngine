@@ -25,7 +25,7 @@ public:
 
     void draw_path();
     void sample_in_runtime();
-    Sample generate_first_sample();
+    void generate_first_queue();
     glm::vec3 editor_to_world_curve_pos(glm::vec2 const& editor_pos);
     glm::vec2 world_to_editor_curve_pos(glm::vec3 const& world_pos);
     glm::vec2 get_point_on_curve_by_index(u32 index);
@@ -47,7 +47,7 @@ private:
     float m_offline_average_root_step = 0.0f;
 
     // Online sampling
-    std::deque<std::pair<Feature, glm::vec3>> m_past_feature_register = {};
+    std::deque<Feature> m_past_feature_register = {};
     float m_online_sample_rate = 0.0f; // Assigned from MotionMatchingSampler
     Sample m_current_online_sample = {};
     float m_time = 0.0f;
