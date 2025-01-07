@@ -19,9 +19,6 @@ void MotionMatchingController::initialize()
 
     set_can_tick(true);
 
-    auto const sampler = AnimationEngine::get_instance()->get_motion_matching_sampler();
-    m_sample_database_ref = std::make_shared<std::vector<Sample>>(sampler.lock()->sample_database);
-
     if (path_point_container.expired())
     {
         path_point_container = Entity::create("Path Point Container");
@@ -64,6 +61,9 @@ void MotionMatchingController::update_editor()
 void MotionMatchingController::awake()
 {
     Component::awake();
+    auto const sampler = AnimationEngine::get_instance()->get_motion_matching_sampler();
+    m_sample_database_ref = std::make_shared<std::vector<Sample>>(sampler.lock()->sample_database);
+    m_assets = Editor::Editor::get_instance()->get_assets(Editor::AssetType::Animation);
     path_point_container.lock()->transform->set_parent(nullptr);
     path_point_container.lock()->transform->set_position(entity->transform->get_position());
     path_point_container.lock()->transform->set_euler_angles(entity->transform->get_euler_angles());
@@ -166,24 +166,25 @@ void MotionMatchingController::sample_in_runtime()
 
     // === FUTURE ===
 
-    glm::vec3 ab = {};
-    u32 first_step_on_curve_id = get_nearest_point_on_curve_id(entity->transform->get_position());
-    glm::vec3 first_step_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
-    glm::vec3 nearest_point_on_curve = first_step_pos;
+    u32 current_nearest_point_on_curve_id = get_nearest_point_on_curve_id(entity->transform->get_position());
+    glm::vec3 current_nearest_point_on_curve = get_nearest_point_on_curve_pos(entity->transform->get_position());
 
-    for (u32 i = 0; i <= feature_num; i++)
+    // We need to estimate how many points do we want to skip
+    u32 future_point_on_curve_id = current_nearest_point_on_curve_id;
+    glm::vec3 future_point_on_curve = {};
+    glm::vec3 good_ab = {};
+
+    do
     {
-        glm::vec3 const current_nearest_point_on_curve = first_step_pos;
-        u32 next_point_on_curve_id = first_step_on_curve_id + 1;
-
+        future_point_on_curve_id++;
         // POP FROM POOL
         auto const d = m_additional_debug_entity_pool.top();
         m_additional_debug_entity_pool.pop();
-        d->transform->set_local_position(editor_to_world_curve_pos(get_point_on_curve_by_index(next_point_on_curve_id)));
+        d->transform->set_local_position(editor_to_world_curve_pos(get_point_on_curve_by_index(future_point_on_curve_id)));
         d->transform->set_parent(path_point_container.lock()->transform);
 
         ////////////////////////////////////////////////////////
-        glm::vec3 next_point_pos = d->transform->get_position();
+        future_point_on_curve = d->transform->get_position();
         ////////////////////////////////////////////////////////
 
         // PUSH TO POOL
@@ -191,42 +192,16 @@ void MotionMatchingController::sample_in_runtime()
         d->transform->set_local_position(glm::vec3(0.0f));
         m_additional_debug_entity_pool.push(d);
 
-        float distance = glm::distance(first_step_pos, next_point_pos);
-        float last_step = 0.0f;
-        while (distance < m_offline_average_root_step)
-        {
-            glm::vec3 const a = next_point_pos;
+        // } while (glm::distance(future_point_on_curve, current_nearest_point_on_curve) < m_offline_average_root_step);
+    } while (glm::distance(future_point_on_curve, current_nearest_point_on_curve) < 0.2f);
 
-            first_step_on_curve_id = next_point_on_curve_id;
-            next_point_on_curve_id++;
-
-            // POP FROM POOL
-            auto const d = m_additional_debug_entity_pool.top();
-            m_additional_debug_entity_pool.pop();
-            d->transform->set_local_position(editor_to_world_curve_pos(get_point_on_curve_by_index(next_point_on_curve_id)));
-            d->transform->set_parent(path_point_container.lock()->transform);
-
-            /////////////////////////////////////////////////
-            glm::vec3 const b = d->transform->get_position();
-            /////////////////////////////////////////////////
-
-            // PUSH TO POOL
-            d->transform->set_parent(nullptr);
-            d->transform->set_local_position(glm::vec3(0.0f));
-            m_additional_debug_entity_pool.push(d);
-
-            last_step = glm::distance(a, b);
-            distance += last_step;
-
-            next_point_pos = b;
-            first_step_pos = a;
-        }
-
-        ab = normalize(next_point_pos - first_step_pos);
+    for (u32 i = 0; i <= feature_num; i++)
+    {
         Feature feature = {};
 
         if (i == 0)
         {
+            glm::vec3 ab = glm::normalize(future_point_on_curve - current_nearest_point_on_curve);
             feature.root_position = current_nearest_point_on_curve;
 
             // TODO: A better prediction?
@@ -234,22 +209,45 @@ void MotionMatchingController::sample_in_runtime()
             feature.right_foot_position = current_nearest_point_on_curve;
 
             feature.facing_direction = ab;
+            good_ab = ab;
 
             sample_part_2.current_feature = feature;
+
+            Debug::draw_debug_sphere(current_nearest_point_on_curve, 0.2f, delta_time * 20.0f);
         }
         if (i > 0)
         {
-            feature.root_position = first_step_pos;
+            u32 const point_offset = future_point_on_curve_id - current_nearest_point_on_curve_id;
+            u32 const selected_point_id = current_nearest_point_on_curve_id + point_offset * (i + 1);
+
+            // POP FROM POOL
+            auto const d = m_additional_debug_entity_pool.top();
+            m_additional_debug_entity_pool.pop();
+            d->transform->set_local_position(editor_to_world_curve_pos(get_point_on_curve_by_index(selected_point_id)));
+            d->transform->set_parent(path_point_container.lock()->transform);
+
+            ////////////////////////////////////////////////////////
+            future_point_on_curve = d->transform->get_position();
+            ////////////////////////////////////////////////////////
+
+            // PUSH TO POOL
+            d->transform->set_parent(nullptr);
+            d->transform->set_local_position(glm::vec3(0.0f));
+            m_additional_debug_entity_pool.push(d);
+
+            glm::vec3 ab = glm::normalize(future_point_on_curve - current_nearest_point_on_curve);
+
+            feature.root_position = future_point_on_curve;
 
             // TODO: A better prediction?
-            feature.left_foot_position = first_step_pos;
-            feature.right_foot_position = first_step_pos;
+            feature.left_foot_position = future_point_on_curve;
+            feature.right_foot_position = future_point_on_curve;
 
             feature.facing_direction = ab;
 
             sample_part_2.future_features.emplace_back(feature);
 
-            Debug::draw_debug_sphere(first_step_pos, 0.2f, delta_time * 20.0f);
+            Debug::draw_debug_sphere(future_point_on_curve, 0.2f, delta_time * 20.0f); // ???????????
         }
     }
 
@@ -287,6 +285,10 @@ void MotionMatchingController::sample_in_runtime()
     for (u32 i = 0; i < feature_num; i++)
         sample_part_1.past_features.emplace_back(m_past_feature_register[i]);
 
+    // === UPDATING QUEUE ===
+    m_past_feature_register.pop_front();
+    m_past_feature_register.push_back(current_feature);
+
     // === RELATIVIZING PAST ===
     std::vector<Feature> features_part_1 = MotionMatchingSampler::relativize_sample(sample_part_1);
 
@@ -299,31 +301,46 @@ void MotionMatchingController::sample_in_runtime()
         m_current_online_sample.future_features.emplace_back(sample_part_2.future_features[i]);
     }
 
-    for (i32 i = -feature_num; i <= feature_num; i++)
+    // for (i32 i = -feature_num; i <= feature_num; i++)
+    // {
+    //     Feature f = {};
+    //
+    //     if (i < 0)
+    //         f = m_current_online_sample.past_features[i + feature_num];
+    //
+    //     if (i == 0)
+    //         f = m_current_online_sample.current_feature;
+    //
+    //     if (i > 0)
+    //         f = m_current_online_sample.future_features[i - 1];
+    //
+    //     Debug::log("      Feature " + std::to_string(i) + ": pos: " + std::to_string(f.root_position.x) + ", "
+    //                + std::to_string(f.root_position.y) + ", " + std::to_string(f.root_position.z)
+    //                + ", left foot position: " + std::to_string(f.left_foot_position.x) + ", " + std::to_string(f.left_foot_position.y)
+    //                + ", " + std::to_string(f.left_foot_position.z) + ", right foot position: " + std::to_string(f.right_foot_position.x)
+    //                + ", " + std::to_string(f.right_foot_position.y) + ", " + std::to_string(f.right_foot_position.z)
+    //                + ", facing direction: " + std::to_string(f.facing_direction.x) + ", " + std::to_string(f.facing_direction.y) + ", "
+    //                + std::to_string(f.facing_direction.z));
+    // }
+
+    choose_best_sample();
+
+    // Debug::log(std::to_string(m_smallest_vector_compare_distance));
+
+    if (m_best_sample_id != m_previous_best_sample_id)
     {
-        Feature f = {};
-
-        if (i < 0)
-            f = m_current_online_sample.past_features[i + feature_num];
-
-        if (i == 0)
-            f = m_current_online_sample.current_feature;
-
-        if (i > 0)
-            f = m_current_online_sample.future_features[i - 1];
-
-        Debug::log("      Feature " + std::to_string(i) + ": pos: " + std::to_string(f.root_position.x) + ", "
-                   + std::to_string(f.root_position.y) + ", " + std::to_string(f.root_position.z)
-                   + ", left foot position: " + std::to_string(f.left_foot_position.x) + ", " + std::to_string(f.left_foot_position.y)
-                   + ", " + std::to_string(f.left_foot_position.z) + ", right foot position: " + std::to_string(f.right_foot_position.x)
-                   + ", " + std::to_string(f.right_foot_position.y) + ", " + std::to_string(f.right_foot_position.z)
-                   + ", facing direction: " + std::to_string(f.facing_direction.x) + ", " + std::to_string(f.facing_direction.y) + ", "
-                   + std::to_string(f.facing_direction.z));
+        u32 const clip_id = m_best_sample.clip_id;
+        float const clip_time = m_best_sample.clip_local_time;
+        auto const asset = m_assets->at(clip_id).path;
+        m_skinned_model_ref.lock()->anim_path = asset;
+        m_skinned_model_ref.lock()->reprepare();
+        m_skinned_model_ref.lock()->animation.current_time = clip_time;
+        m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
+        m_skinned_model_ref.lock()->align_animation_to_vector(good_ab);
+        Debug::log(std::to_string(good_ab.x) + ", " + std::to_string(good_ab.y) + ", " + std::to_string(good_ab.z));
+        m_previous_best_sample_id = m_best_sample_id;
+        // Debug::log(asset + ", " + std::to_string(clip_time));
     }
-
-    // === UPDATING QUEUE ===
-    m_past_feature_register.pop_front();
-    m_past_feature_register.push_back(current_feature);
 }
 
 void MotionMatchingController::generate_first_queue()
@@ -348,6 +365,54 @@ void MotionMatchingController::generate_first_queue()
 
     m_skinned_model_ref.lock()->enable_root_motion = true;
     AnimationEngine::get_instance()->allow_animation_previews = true;
+}
+
+void MotionMatchingController::choose_best_sample()
+{
+    // TODO: Apply SIMD math here
+
+    m_smallest_vector_compare_distance = FLT_MAX;
+    auto const current_online_sample = m_current_online_sample;
+    for (u32 sample_id = 0; sample_id < m_sample_database_ref->size(); sample_id++)
+    {
+        float vector_distance = 0.0f;
+        auto const current_database_sample = m_sample_database_ref->at(sample_id);
+
+        vector_distance += glm::distance(current_online_sample.current_feature.left_foot_position,
+                                         current_database_sample.current_feature.left_foot_position);
+        vector_distance += glm::distance(current_online_sample.current_feature.right_foot_position,
+                                         current_database_sample.current_feature.right_foot_position);
+        vector_distance +=
+            glm::distance(current_online_sample.current_feature.facing_direction, current_database_sample.current_feature.facing_direction);
+
+        for (u32 i = 0; i < feature_num; i++)
+        {
+            vector_distance +=
+                glm::distance(current_online_sample.past_features[i].root_position, current_database_sample.past_features[i].root_position);
+            vector_distance += glm::distance(current_online_sample.past_features[i].left_foot_position,
+                                             current_database_sample.past_features[i].left_foot_position);
+            vector_distance += glm::distance(current_online_sample.past_features[i].right_foot_position,
+                                             current_database_sample.past_features[i].right_foot_position);
+            vector_distance += glm::distance(current_online_sample.past_features[i].facing_direction,
+                                             current_database_sample.past_features[i].facing_direction);
+
+            vector_distance += glm::distance(current_online_sample.future_features[i].root_position,
+                                             current_database_sample.future_features[i].root_position);
+            vector_distance += glm::distance(current_online_sample.future_features[i].left_foot_position,
+                                             current_database_sample.future_features[i].left_foot_position);
+            vector_distance += glm::distance(current_online_sample.future_features[i].right_foot_position,
+                                             current_database_sample.future_features[i].right_foot_position);
+            vector_distance += glm::distance(current_online_sample.future_features[i].facing_direction,
+                                             current_database_sample.future_features[i].facing_direction);
+        }
+
+        if (vector_distance * 1.4f < m_smallest_vector_compare_distance)
+        {
+            m_smallest_vector_compare_distance = vector_distance;
+            m_best_sample_id = sample_id;
+            m_best_sample = current_database_sample;
+        }
+    }
 }
 
 glm::vec3 MotionMatchingController::editor_to_world_curve_pos(glm::vec2 const& editor_pos)
@@ -378,11 +443,15 @@ glm::vec2 MotionMatchingController::world_to_editor_curve_pos(glm::vec3 const& w
 glm::vec2 MotionMatchingController::get_point_on_curve_by_index(u32 const index)
 {
     glm::vec2 previous_point_pos = {0.0f, 0.0f};
+    u32 clamped_index = index;
+
+    if (index > m_motion_matching_path->curve.size() - 1)
+        clamped_index = m_motion_matching_path->curve.size() - 2;
 
     if (index > 0)
-        previous_point_pos = m_motion_matching_path->curve[index - 1];
+        previous_point_pos = m_motion_matching_path->curve[clamped_index - 1];
 
-    return m_motion_matching_path->curve[index];
+    return m_motion_matching_path->curve[clamped_index];
 }
 
 u32 MotionMatchingController::get_nearest_point_on_curve_id(glm::vec3 const& position)

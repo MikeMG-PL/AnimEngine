@@ -92,6 +92,11 @@ void SkinnedModel::draw_editor()
         reprepare();
     }
 
+    if (ImGui::Button("Readjust anim // test"))
+    {
+        align_animation_to_vector(glm::vec3(0, 0, 1));
+    }
+
     ImGui::Checkbox("Enable root motion", &enable_root_motion);
 
     // Choose rasterizer draw mode for individual model
@@ -226,8 +231,13 @@ void SkinnedModel::load_model(std::string const& path, SkinningLoadMode const& l
     std::filesystem::path const filesystem_path = path;
     m_directory = filesystem_path.parent_path().string();
 
+    if (entity != nullptr)
+        m_cached_initial_model_pos = entity->transform->get_position();
+
     process_node(m_scene->mRootNode);
     initialize_animation();
+
+    m_first_bone_calculation = true;
 }
 
 void SkinnedModel::process_node(aiNode const* node)
@@ -403,6 +413,14 @@ void SkinnedModel::set_vertex_bone_data_to_default(Vertex& vertex)
 
 void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform)
 {
+    if (m_first_bone_calculation && glm::distance(m_cached_initial_model_pos, entity->transform->get_position()) > 0.0f)
+    {
+        m_cached_translated_model_pos = entity->transform->get_position();
+        m_model_loading_offset = m_cached_translated_model_pos - m_cached_initial_model_pos;
+        m_first_bone_calculation = false;
+        entity->transform->set_position(entity->transform->get_position() - m_model_loading_offset);
+    }
+
     std::string const node_name = node->name;
     glm::mat4 node_transform = node->transformation;
 
@@ -428,10 +446,12 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
             // Move root back to model (0,0,0)
             bone->local_transform = translate(glm::mat4(1.0f), glm::vec3(0.0f));
+            // align_animation_to_vector(glm::vec3(0, 0, 1));
 
             // Offset entity ("should be capsule controller") by offset that root should traverse
             // Of course DO NOT do this when wrapping, because wrapping applies another offset, so they would be duplicated
             glm::vec3 final_position = entity->transform->get_position() + rotated_position;
+            final_position.y = 0.0f;
             if (!animation.wrap_extracted_motion)
                 entity->transform->set_position(final_position);
             else
@@ -469,6 +489,35 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
     for (int i = 0; i < node->children_count; i++)
         calculate_bone_transform(&node->children[i], global_transformation);
+}
+
+void SkinnedModel::align_animation_to_vector(glm::vec3 const& v)
+{
+    // here im testing aligning character
+    if (Bone* bone = find_bone("Hips"))
+    {
+        glm::vec3 scale = glm::vec3(0.0f);
+        glm::vec3 pos = glm::vec3(0.0f);
+        glm::vec3 skew = glm::vec3(0.0f);
+        glm::vec4 perspective = glm::vec4(0.0f);
+        glm::quat q_h = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+        decompose(bone->local_transform, scale, q_h, pos, skew, perspective);
+
+        auto facing_direction = q_h * glm::vec3(0.0f, 0.0f, -1.0f); // Z vector is forward, but negative for some reason (trial & error)
+        facing_direction.y = 0.0f;
+        facing_direction = normalize(facing_direction);
+
+        float dot = glm::dot(facing_direction, v);
+        glm::vec3 cross = glm::cross(facing_direction, v);
+        float angle = glm::acos(dot);
+        float angle_deg = glm::degrees(angle);
+
+        if (cross.y > 0)
+            angle_deg = 360.0f - angle_deg;
+
+        entity->transform->set_euler_angles({0.0f, -angle_deg, 0.0f});
+    }
 }
 
 void SkinnedModel::initialize_animation()

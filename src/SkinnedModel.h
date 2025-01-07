@@ -59,6 +59,7 @@ public:
 
     virtual bool is_skinned_model() const override;
     void calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform);
+    void align_animation_to_vector(glm::vec3 const& v);
 
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/anims/conv77_12_Anim.gltf";
@@ -98,4 +99,9 @@ private:
 
     std::string m_directory = "";
     std::vector<std::shared_ptr<Texture>> m_loaded_textures = {};
+
+    glm::vec3 m_cached_initial_model_pos = glm::vec3(0.0f);
+    glm::vec3 m_cached_translated_model_pos = glm::vec3(0.0f);
+    glm::vec3 m_model_loading_offset = glm::vec3(0.0f);
+    bool m_first_bone_calculation = true;
 };

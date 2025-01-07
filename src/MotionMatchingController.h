@@ -1,6 +1,7 @@
 #pragma once
 #include "Curve.h"
 #include "DebugDrawing.h"
+#include "Editor.h"
 #include "MotionMatchingSampler.h"
 
 #include <deque>
@@ -23,9 +24,6 @@ public:
     virtual void draw_editor() override;
 #endif
 
-    void draw_path();
-    void sample_in_runtime();
-    void generate_first_queue();
     glm::vec3 editor_to_world_curve_pos(glm::vec2 const& editor_pos);
     glm::vec2 world_to_editor_curve_pos(glm::vec3 const& world_pos);
     glm::vec2 get_point_on_curve_by_index(u32 index);
@@ -36,6 +34,11 @@ public:
     float path_scale = 1.0f;
 
 private:
+    void draw_path();
+    void sample_in_runtime();
+    void generate_first_queue();
+    void choose_best_sample();
+
     std::vector<std::shared_ptr<Entity>> m_cached_line = {};
     std::stack<std::shared_ptr<Entity>> m_additional_debug_entity_pool = {};
     std::shared_ptr<Curve> m_motion_matching_path = nullptr;
@@ -51,4 +54,11 @@ private:
     float m_online_sample_rate = 0.0f; // Assigned from MotionMatchingSampler
     Sample m_current_online_sample = {};
     float m_time = 0.0f;
+    float m_smallest_vector_compare_distance = FLT_MAX; // For choosing the best sample
+    std::shared_ptr<std::vector<Editor::Asset>> m_assets = nullptr;
+    glm::vec3 m_cached_pos = glm::vec3(0.0f);
+
+    i32 m_best_sample_id = -1;
+    i32 m_previous_best_sample_id = -1;
+    Sample m_best_sample = {};
 };
