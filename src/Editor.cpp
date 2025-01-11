@@ -217,7 +217,7 @@ void Editor::draw_debug_window(std::shared_ptr<EditorWindow> const& window)
     {
         Debug::clear();
     }
-    if (ImGui::BeginListBox("Logs", ImVec2(-FLT_MIN, 0.0f)))
+    if (ImGui::BeginListBox("Logs", ImVec2(-FLT_MIN, -20.0f)))
     {
         ImGuiListClipper clipper;
         clipper.Begin(Debug::debug_messages.size());

@@ -350,7 +350,6 @@ glm::vec3 MotionMatchingSampler::calculate_facing_direction(std::shared_ptr<Skin
     auto facing_direction = q * glm::vec3(0.0f, 0.0f, -1.0f); // Z vector is forward, but negative for some reason (trial & error)
     facing_direction.y = 0.0f;
     facing_direction = normalize(facing_direction);
-
     return facing_direction;
 }
 

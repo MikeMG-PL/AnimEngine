@@ -4,6 +4,7 @@
 #include "Editor.h"
 #include "MotionMatchingSampler.h"
 
+#include <chrono>
 #include <deque>
 #include <stack>
 
@@ -37,7 +38,9 @@ private:
     void draw_path();
     void sample_in_runtime();
     void generate_first_queue();
-    void choose_best_sample();
+    void choose_best_sample(Sample const& online_sample, glm::vec3 const& realignment_vector);
+    void measure_root_deviation();
+    void measure_execution_time(float current_execution_time);
 
     std::vector<std::shared_ptr<Entity>> m_cached_line = {};
     std::stack<std::shared_ptr<Entity>> m_additional_debug_entity_pool = {};
@@ -54,11 +57,18 @@ private:
     float m_online_sample_rate = 0.0f; // Assigned from MotionMatchingSampler
     Sample m_current_online_sample = {};
     float m_time = 0.0f;
-    float m_smallest_vector_compare_distance = FLT_MAX; // For choosing the best sample
+    float m_previous_cost = FLT_MAX; // For choosing the best sample
     std::shared_ptr<std::vector<Editor::Asset>> m_assets = nullptr;
     glm::vec3 m_cached_pos = glm::vec3(0.0f);
 
-    i32 m_best_sample_id = -1;
     i32 m_previous_best_sample_id = -1;
+    u32 m_cost_lock_counter = 0;
     Sample m_best_sample = {};
+
+    // Measurements
+    u32 m_root_deviation_measures_num = 0;
+    float m_accumulated_root_deviation = 0.0f;
+
+    u32 m_execution_time_measures_num = 0;
+    float m_accumulated_execution_time = 0.0f;
 };

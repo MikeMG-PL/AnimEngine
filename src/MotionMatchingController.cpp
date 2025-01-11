@@ -3,6 +3,7 @@
 #include "AK/AK.h"
 #include "AnimationEngine.h"
 #include "Entity.h"
+#include <chrono>
 
 std::shared_ptr<MotionMatchingController> MotionMatchingController::create()
 {
@@ -161,8 +162,7 @@ void MotionMatchingController::sample_in_runtime()
 
     m_time = 0.0f;
 
-    Sample sample_part_1 = {};
-    Sample sample_part_2 = {};
+    Sample sample = {};
 
     // === FUTURE ===
 
@@ -193,7 +193,7 @@ void MotionMatchingController::sample_in_runtime()
         m_additional_debug_entity_pool.push(d);
 
         // } while (glm::distance(future_point_on_curve, current_nearest_point_on_curve) < m_offline_average_root_step);
-    } while (glm::distance(future_point_on_curve, current_nearest_point_on_curve) < 0.2f);
+    } while (glm::distance(future_point_on_curve, current_nearest_point_on_curve) < 0.35f); // ADJUSTED!
 
     for (u32 i = 0; i <= feature_num; i++)
     {
@@ -211,7 +211,7 @@ void MotionMatchingController::sample_in_runtime()
             feature.facing_direction = ab;
             good_ab = ab;
 
-            sample_part_2.current_feature = feature;
+            sample.current_feature = feature;
 
             Debug::draw_debug_sphere(current_nearest_point_on_curve, 0.2f, delta_time * 20.0f);
         }
@@ -245,19 +245,11 @@ void MotionMatchingController::sample_in_runtime()
 
             feature.facing_direction = ab;
 
-            sample_part_2.future_features.emplace_back(feature);
+            sample.future_features.emplace_back(feature);
 
             Debug::draw_debug_sphere(future_point_on_curve, 0.2f, delta_time * 20.0f); // ???????????
         }
     }
-
-    Feature const mock = {};
-
-    for (u32 i = 0; i < feature_num; i++)
-        sample_part_2.past_features.emplace_back(mock);
-
-    // === RELATIVIZING FUTURE ===
-    std::vector<Feature> features_part_2 = MotionMatchingSampler::relativize_sample(sample_part_2);
 
     // === PAST & NOW ===
     Feature current_feature = {};
@@ -266,41 +258,60 @@ void MotionMatchingController::sample_in_runtime()
     AnimationEngine::get_instance()->allow_animation_previews = false;
 
     glm::vec3 const root = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
-    std::vector<glm::vec3> const feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
-    glm::vec3 const facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
+    std::vector<glm::vec3> feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
+    glm::vec3 facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
 
     m_skinned_model_ref.lock()->enable_root_motion = true;
     AnimationEngine::get_instance()->allow_animation_previews = true;
 
-    current_feature.root_position = root;
+    // We want it in a space consistent with future trajectory predictions
+    auto const entity_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
+
+    // These are feet offsets that require transforming to the space of 0-feature and its AB facing direction
+    feet[0] = feet[0] - root;
+    feet[0] = AK::Math::transform_to_new_space_z(feet[0], glm::vec3(0.0f, 0.0f, 1.0f));
+    feet[0] += entity_pos;
+
+    feet[1] = feet[1] - root;
+    feet[1] = AK::Math::transform_to_new_space_z(feet[1], glm::vec3(0.0f, 0.0f, 1.0f));
+    feet[1] += entity_pos;
+
+    float radians = glm::radians(entity->transform->get_euler_angles().y);
+    glm::quat rotation = glm::angleAxis(radians, glm::vec3(0.0f, 1.0f, 0.0f));
+    facing = glm::normalize(rotation * facing);
+
+    current_feature.root_position = entity_pos;
     current_feature.left_foot_position = feet[0];
     current_feature.right_foot_position = feet[1];
     current_feature.facing_direction = facing;
-
-    for (u32 i = 0; i < feature_num; i++)
-        sample_part_1.future_features.emplace_back(mock);
-
-    sample_part_1.current_feature = current_feature;
-
-    for (u32 i = 0; i < feature_num; i++)
-        sample_part_1.past_features.emplace_back(m_past_feature_register[i]);
 
     // === UPDATING QUEUE ===
     m_past_feature_register.pop_front();
     m_past_feature_register.push_back(current_feature);
 
-    // === RELATIVIZING PAST ===
-    std::vector<Feature> features_part_1 = MotionMatchingSampler::relativize_sample(sample_part_1);
+    for (u32 i = 0; i < feature_num; i++)
+    {
+        sample.past_features.emplace_back(m_past_feature_register[i]);
+    }
+
+    // === RELATIVIZING ===
+    std::vector<Feature> features = MotionMatchingSampler::relativize_sample(sample);
 
     m_current_online_sample.past_features.clear();
     m_current_online_sample.future_features.clear();
-    m_current_online_sample.current_feature = sample_part_1.current_feature;
+    m_current_online_sample.current_feature = sample.current_feature;
     for (u32 i = 0; i < feature_num; i++)
     {
-        m_current_online_sample.past_features.emplace_back(sample_part_1.past_features[i]);
-        m_current_online_sample.future_features.emplace_back(sample_part_2.future_features[i]);
+        m_current_online_sample.past_features.emplace_back(sample.past_features[i]);
+
+        m_current_online_sample.future_features.emplace_back(sample.future_features[i]);
     }
 
+    choose_best_sample(m_current_online_sample, good_ab);
+
+    // Debug::clear();
+    //
+    // Debug::log("CURRENT ONLINE SAMPLE:");
     // for (i32 i = -feature_num; i <= feature_num; i++)
     // {
     //     Feature f = {};
@@ -322,25 +333,31 @@ void MotionMatchingController::sample_in_runtime()
     //                + ", facing direction: " + std::to_string(f.facing_direction.x) + ", " + std::to_string(f.facing_direction.y) + ", "
     //                + std::to_string(f.facing_direction.z));
     // }
-
-    choose_best_sample();
-
-    // Debug::log(std::to_string(m_smallest_vector_compare_distance));
-
-    if (m_best_sample_id != m_previous_best_sample_id)
-    {
-        u32 const clip_id = m_best_sample.clip_id;
-        float const clip_time = m_best_sample.clip_local_time;
-        auto const asset = m_assets->at(clip_id).path;
-        m_skinned_model_ref.lock()->anim_path = asset;
-        m_skinned_model_ref.lock()->reprepare();
-        m_skinned_model_ref.lock()->animation.current_time = clip_time;
-        m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
-        m_skinned_model_ref.lock()->align_animation_to_vector(good_ab);
-        Debug::log(std::to_string(good_ab.x) + ", " + std::to_string(good_ab.y) + ", " + std::to_string(good_ab.z));
-        m_previous_best_sample_id = m_best_sample_id;
-        // Debug::log(asset + ", " + std::to_string(clip_time));
-    }
+    //
+    // Debug::log("");
+    //
+    // Debug::log("BEST DATABASE CHOSEN SAMPLE:");
+    // for (i32 i = -feature_num; i <= feature_num; i++)
+    // {
+    //     Feature f = {};
+    //
+    //     if (i < 0)
+    //         f = m_best_sample.past_features[i + feature_num];
+    //
+    //     if (i == 0)
+    //         f = m_best_sample.current_feature;
+    //
+    //     if (i > 0)
+    //         f = m_best_sample.future_features[i - 1];
+    //
+    //     Debug::log("      Feature " + std::to_string(i) + ": pos: " + std::to_string(f.root_position.x) + ", "
+    //                + std::to_string(f.root_position.y) + ", " + std::to_string(f.root_position.z)
+    //                + ", left foot position: " + std::to_string(f.left_foot_position.x) + ", " + std::to_string(f.left_foot_position.y)
+    //                + ", " + std::to_string(f.left_foot_position.z) + ", right foot position: " + std::to_string(f.right_foot_position.x)
+    //                + ", " + std::to_string(f.right_foot_position.y) + ", " + std::to_string(f.right_foot_position.z)
+    //                + ", facing direction: " + std::to_string(f.facing_direction.x) + ", " + std::to_string(f.facing_direction.y) + ", "
+    //                + std::to_string(f.facing_direction.z));
+    // }
 }
 
 void MotionMatchingController::generate_first_queue()
@@ -351,67 +368,185 @@ void MotionMatchingController::generate_first_queue()
     AnimationEngine::get_instance()->allow_animation_previews = false;
 
     auto const root = MotionMatchingSampler::calculate_feature_position(m_skinned_model_ref.lock());
-    auto const feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
-    auto const facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
+    auto feet = MotionMatchingSampler::calculate_feet_positions(m_skinned_model_ref.lock());
+    auto facing = MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock());
 
-    for (u32 i = 0; i < feature_num; i++)
+    m_skinned_model_ref.lock()->enable_root_motion = true;
+    AnimationEngine::get_instance()->allow_animation_previews = true;
+
+    // We want it in a space consistent with future trajectory predictions
+    auto const entity_pos = get_nearest_point_on_curve_pos(entity->transform->get_position());
+
+    // These are feet offsets that require transforming to the space of 0-feature and its AB facing direction
+    feet[0] = feet[0] - root;
+    feet[0] = AK::Math::transform_to_new_space_z(feet[0], glm::vec3(0.0f, 0.0f, 1.0f));
+    feet[0] += entity_pos;
+
+    feet[1] = feet[1] - root;
+    feet[1] = AK::Math::transform_to_new_space_z(feet[1], glm::vec3(0.0f, 0.0f, 1.0f));
+    feet[1] += entity_pos;
+
+    float radians = glm::radians(entity->transform->get_euler_angles().y);
+    glm::quat rotation = glm::angleAxis(radians, glm::vec3(0.0f, 1.0f, 0.0f));
+    facing = glm::normalize(rotation * facing);
+    feet[0] = rotation * feet[0];
+    feet[1] = rotation * feet[1];
+
+    for (u32 i = 0; i < feature_num + 1; i++)
     {
-        feature.root_position = root;
+        feature.root_position = entity_pos;
         feature.left_foot_position = feet[0];
         feature.right_foot_position = feet[1];
         feature.facing_direction = facing;
         m_past_feature_register.push_back(feature);
     }
-
-    m_skinned_model_ref.lock()->enable_root_motion = true;
-    AnimationEngine::get_instance()->allow_animation_previews = true;
 }
 
-void MotionMatchingController::choose_best_sample()
+void MotionMatchingController::choose_best_sample(Sample const& online_sample, glm::vec3 const& realignment_vector)
 {
     // TODO: Apply SIMD math here
 
-    m_smallest_vector_compare_distance = FLT_MAX;
-    auto const current_online_sample = m_current_online_sample;
+    auto const start = std::chrono::high_resolution_clock::now();
+    Sample current_online_sample = online_sample;
+    float current_cost = FLT_MAX;
+
+    // for (u32 i = 0; i < feature_num; i++)
+    // {
+    //     float multiplier = 1.0f * (feature_num - i);
+    //     current_online_sample.past_features[i].root_position *= (multiplier * 1.0f);
+    //     current_online_sample.past_features[i].facing_direction *= 1.0f;
+    // }
+    //
+    // for (u32 i = 0; i < feature_num; i++)
+    // {
+    //     float multiplier = 1.0f * (i + 1);
+    //     current_online_sample.future_features[i].root_position *= (multiplier * 1.0f);
+    //     current_online_sample.future_features[i].facing_direction *= 1.0f;
+    // }
+
+    i32 best_sample_id = -1;
+
+    std::random_device rd;
+    std::mt19937 g(rd());
+
+    // Shuffle the vector
+    std::ranges::shuffle(*m_sample_database_ref, g);
+
     for (u32 sample_id = 0; sample_id < m_sample_database_ref->size(); sample_id++)
     {
         float vector_distance = 0.0f;
         auto const current_database_sample = m_sample_database_ref->at(sample_id);
 
-        vector_distance += glm::distance(current_online_sample.current_feature.left_foot_position,
-                                         current_database_sample.current_feature.left_foot_position);
-        vector_distance += glm::distance(current_online_sample.current_feature.right_foot_position,
-                                         current_database_sample.current_feature.right_foot_position);
-        vector_distance +=
-            glm::distance(current_online_sample.current_feature.facing_direction, current_database_sample.current_feature.facing_direction);
+        // vector_distance += glm::distance(current_online_sample.current_feature.left_foot_position,
+        //                                  current_database_sample.current_feature.left_foot_position);
+        // vector_distance += glm::distance(current_online_sample.current_feature.right_foot_position,
+        //                                  current_database_sample.current_feature.right_foot_position);
+
+        if (glm::distance(current_database_sample.past_features[0].root_position,
+                          current_database_sample.future_features[feature_num - 1].root_position)
+            < 3.0f)
+            continue;
 
         for (u32 i = 0; i < feature_num; i++)
         {
-            vector_distance +=
-                glm::distance(current_online_sample.past_features[i].root_position, current_database_sample.past_features[i].root_position);
-            vector_distance += glm::distance(current_online_sample.past_features[i].left_foot_position,
-                                             current_database_sample.past_features[i].left_foot_position);
-            vector_distance += glm::distance(current_online_sample.past_features[i].right_foot_position,
-                                             current_database_sample.past_features[i].right_foot_position);
-            vector_distance += glm::distance(current_online_sample.past_features[i].facing_direction,
+            vector_distance += 1.0f
+                             * glm::distance(current_online_sample.past_features[i].root_position,
+                                             current_database_sample.past_features[i].root_position);
+            // vector_distance += glm::distance(current_online_sample.past_features[i].left_foot_position,
+            //                                  current_database_sample.past_features[i].left_foot_position);
+            // vector_distance += glm::distance(current_online_sample.past_features[i].right_foot_position,
+            //                                  current_database_sample.past_features[i].right_foot_position);
+            vector_distance += 2.0f
+                             * glm::distance(current_online_sample.past_features[i].facing_direction,
                                              current_database_sample.past_features[i].facing_direction);
 
-            vector_distance += glm::distance(current_online_sample.future_features[i].root_position,
+            vector_distance += 2.0f
+                             * glm::distance(current_online_sample.future_features[i].root_position,
                                              current_database_sample.future_features[i].root_position);
-            vector_distance += glm::distance(current_online_sample.future_features[i].left_foot_position,
-                                             current_database_sample.future_features[i].left_foot_position);
-            vector_distance += glm::distance(current_online_sample.future_features[i].right_foot_position,
-                                             current_database_sample.future_features[i].right_foot_position);
-            vector_distance += glm::distance(current_online_sample.future_features[i].facing_direction,
+            // vector_distance += glm::distance(current_online_sample.future_features[i].left_foot_position,
+            //                                  current_database_sample.future_features[i].left_foot_position);
+            // vector_distance += glm::distance(current_online_sample.future_features[i].right_foot_position,
+            //                                  current_database_sample.future_features[i].right_foot_position);
+            vector_distance += 4.0f
+                             * glm::distance(current_online_sample.future_features[i].facing_direction,
                                              current_database_sample.future_features[i].facing_direction);
         }
 
-        if (vector_distance * 1.4f < m_smallest_vector_compare_distance)
-        {
-            m_smallest_vector_compare_distance = vector_distance;
-            m_best_sample_id = sample_id;
-            m_best_sample = current_database_sample;
-        }
+        // if (vector_distance >= current_cost)
+        //     continue;
+
+        if (vector_distance * 1.2f > current_cost)
+            continue;
+
+        current_cost = vector_distance;
+        best_sample_id = sample_id;
+    }
+
+    auto const stop = std::chrono::high_resolution_clock::now();
+    float const duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
+
+    // if (current_cost * 2.74f > m_previous_cost)
+    //     return;
+
+    u32 const margin = 20;
+    if (best_sample_id >= m_previous_best_sample_id - margin && best_sample_id <= m_previous_best_sample_id + margin)
+        return;
+
+    // if (m_cost_lock_counter >= 3)
+    // {
+    //     m_cost_lock_counter = 0;
+    //     m_previous_cost = FLT_MAX;
+    // }
+    //
+    // if (current_cost * 1.15f < m_previous_cost)
+    // {
+    //     m_previous_cost = current_cost;
+    // }
+    // else
+    // {
+    //     m_cost_lock_counter++;
+    //     return;
+    // }
+
+    measure_execution_time(duration);
+    measure_root_deviation();
+
+    m_best_sample = m_sample_database_ref->at(best_sample_id);
+    u32 const clip_id = m_best_sample.clip_id;
+    float const clip_time = m_best_sample.clip_local_time;
+    auto const asset = m_assets->at(clip_id).path;
+    m_skinned_model_ref.lock()->anim_path = asset;
+    m_skinned_model_ref.lock()->reprepare();
+    m_skinned_model_ref.lock()->animation.current_time = clip_time;
+    m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
+    m_skinned_model_ref.lock()->align_animation_to_vector(realignment_vector);
+    // Debug::log(std::to_string(good_ab.x) + ", " + std::to_string(good_ab.y) + ", " + std::to_string(good_ab.z));
+    m_previous_best_sample_id = best_sample_id;
+    // m_previous_cost = current_cost;
+}
+
+void MotionMatchingController::measure_root_deviation()
+{
+    m_accumulated_root_deviation +=
+        glm::distance(entity->transform->get_position(), get_nearest_point_on_curve_pos(entity->transform->get_position()));
+    m_root_deviation_measures_num++;
+
+    if (get_nearest_point_on_curve_id(entity->transform->get_position()) >= m_motion_matching_path->curve.size() - 8)
+    {
+        float const average_deviation = m_accumulated_root_deviation / static_cast<float>(m_root_deviation_measures_num);
+        Debug::log("Average root deviation: " + std::to_string(average_deviation));
+    }
+}
+
+void MotionMatchingController::measure_execution_time(float current_execution_time)
+{
+    m_accumulated_execution_time += current_execution_time;
+    m_execution_time_measures_num++;
+
+    if (get_nearest_point_on_curve_id(entity->transform->get_position()) >= m_motion_matching_path->curve.size() - 8)
+    {
+        float const average_time = m_accumulated_execution_time / static_cast<float>(m_execution_time_measures_num);
+        Debug::log("Average execution time: " + std::to_string(average_time / 1000.0f) + " ms");
     }
 }
 
