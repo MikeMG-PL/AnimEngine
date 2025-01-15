@@ -60,6 +60,8 @@ private:
     float m_previous_cost = FLT_MAX; // For choosing the best sample
     std::shared_ptr<std::vector<Editor::Asset>> m_assets = nullptr;
     glm::vec3 m_cached_pos = glm::vec3(0.0f);
+    glm::vec3 m_first_realignment_vector = glm::vec3(0.0f);
+    bool m_restart_traversal = false;
 
     i32 m_previous_best_sample_id = -1;
     u32 m_cost_lock_counter = 0;
@@ -71,4 +73,6 @@ private:
 
     u32 m_execution_time_measures_num = 0;
     float m_accumulated_execution_time = 0.0f;
+
+    u32 m_path_traversal_num = 0;
 };

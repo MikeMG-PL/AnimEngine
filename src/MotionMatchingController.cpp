@@ -211,6 +211,9 @@ void MotionMatchingController::sample_in_runtime()
             feature.facing_direction = ab;
             good_ab = ab;
 
+            if (current_nearest_point_on_curve_id < 10)
+                m_first_realignment_vector = good_ab;
+
             sample.current_feature = feature;
 
             Debug::draw_debug_sphere(current_nearest_point_on_curve, 0.2f, delta_time * 20.0f);
@@ -410,19 +413,19 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
     Sample current_online_sample = online_sample;
     float current_cost = FLT_MAX;
 
-    // for (u32 i = 0; i < feature_num; i++)
-    // {
-    //     float multiplier = 1.0f * (feature_num - i);
-    //     current_online_sample.past_features[i].root_position *= (multiplier * 1.0f);
-    //     current_online_sample.past_features[i].facing_direction *= 1.0f;
-    // }
-    //
-    // for (u32 i = 0; i < feature_num; i++)
-    // {
-    //     float multiplier = 1.0f * (i + 1);
-    //     current_online_sample.future_features[i].root_position *= (multiplier * 1.0f);
-    //     current_online_sample.future_features[i].facing_direction *= 1.0f;
-    // }
+    for (u32 i = 0; i < feature_num; i++)
+    {
+        float multiplier = 1.0f * (feature_num - i);
+        current_online_sample.past_features[i].root_position *= (multiplier * 1.0f);
+        current_online_sample.past_features[i].facing_direction *= 1.0f;
+    }
+
+    for (u32 i = 0; i < feature_num; i++)
+    {
+        float multiplier = 1.0f * (i + 1);
+        current_online_sample.future_features[i].root_position *= (multiplier * 1.0f);
+        current_online_sample.future_features[i].facing_direction *= 1.0f;
+    }
 
     i32 best_sample_id = -1;
 
@@ -430,32 +433,32 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
     std::mt19937 g(rd());
 
     // Shuffle the vector
-    std::ranges::shuffle(*m_sample_database_ref, g);
+    // std::ranges::shuffle(*m_sample_database_ref, g);
 
     for (u32 sample_id = 0; sample_id < m_sample_database_ref->size(); sample_id++)
     {
         float vector_distance = 0.0f;
         auto const current_database_sample = m_sample_database_ref->at(sample_id);
 
-        // vector_distance += glm::distance(current_online_sample.current_feature.left_foot_position,
-        //                                  current_database_sample.current_feature.left_foot_position);
-        // vector_distance += glm::distance(current_online_sample.current_feature.right_foot_position,
-        //                                  current_database_sample.current_feature.right_foot_position);
+        vector_distance += glm::distance(current_online_sample.current_feature.left_foot_position,
+                                         current_database_sample.current_feature.left_foot_position);
+        vector_distance += glm::distance(current_online_sample.current_feature.right_foot_position,
+                                         current_database_sample.current_feature.right_foot_position);
 
-        if (glm::distance(current_database_sample.past_features[0].root_position,
-                          current_database_sample.future_features[feature_num - 1].root_position)
-            < 3.0f)
-            continue;
+        // if (current_database_sample.future_features[feature_num - 1].root_position.z
+        //         - current_database_sample.future_features[0].root_position.z
+        //     < 1.0f)
+        //     continue;
 
         for (u32 i = 0; i < feature_num; i++)
         {
             vector_distance += 1.0f
                              * glm::distance(current_online_sample.past_features[i].root_position,
                                              current_database_sample.past_features[i].root_position);
-            // vector_distance += glm::distance(current_online_sample.past_features[i].left_foot_position,
-            //                                  current_database_sample.past_features[i].left_foot_position);
-            // vector_distance += glm::distance(current_online_sample.past_features[i].right_foot_position,
-            //                                  current_database_sample.past_features[i].right_foot_position);
+            vector_distance += glm::distance(current_online_sample.past_features[i].left_foot_position,
+                                             current_database_sample.past_features[i].left_foot_position);
+            vector_distance += glm::distance(current_online_sample.past_features[i].right_foot_position,
+                                             current_database_sample.past_features[i].right_foot_position);
             vector_distance += 2.0f
                              * glm::distance(current_online_sample.past_features[i].facing_direction,
                                              current_database_sample.past_features[i].facing_direction);
@@ -475,7 +478,7 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
         // if (vector_distance >= current_cost)
         //     continue;
 
-        if (vector_distance * 1.2f > current_cost)
+        if (vector_distance > current_cost)
             continue;
 
         current_cost = vector_distance;
@@ -485,10 +488,10 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
     auto const stop = std::chrono::high_resolution_clock::now();
     float const duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
 
-    // if (current_cost * 2.74f > m_previous_cost)
+    // if (current_cost * 1.0f / 1.5f > m_previous_cost)
     //     return;
 
-    u32 const margin = 20;
+    u32 const margin = 2;
     if (best_sample_id >= m_previous_best_sample_id - margin && best_sample_id <= m_previous_best_sample_id + margin)
         return;
 
@@ -509,7 +512,6 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
     // }
 
     measure_execution_time(duration);
-    measure_root_deviation();
 
     m_best_sample = m_sample_database_ref->at(best_sample_id);
     u32 const clip_id = m_best_sample.clip_id;
@@ -519,7 +521,11 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
     m_skinned_model_ref.lock()->reprepare();
     m_skinned_model_ref.lock()->animation.current_time = clip_time;
     m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
-    m_skinned_model_ref.lock()->align_animation_to_vector(realignment_vector);
+    if (!m_restart_traversal)
+        m_skinned_model_ref.lock()->align_animation_to_vector(realignment_vector);
+
+    m_restart_traversal = false;
+
     // Debug::log(std::to_string(good_ab.x) + ", " + std::to_string(good_ab.y) + ", " + std::to_string(good_ab.z));
     m_previous_best_sample_id = best_sample_id;
     // m_previous_cost = current_cost;
@@ -534,7 +540,7 @@ void MotionMatchingController::measure_root_deviation()
     if (get_nearest_point_on_curve_id(entity->transform->get_position()) >= m_motion_matching_path->curve.size() - 8)
     {
         float const average_deviation = m_accumulated_root_deviation / static_cast<float>(m_root_deviation_measures_num);
-        Debug::log("Average root deviation: " + std::to_string(average_deviation));
+        Debug::log("     Average root deviation: " + std::to_string(average_deviation));
     }
 }
 
@@ -545,8 +551,17 @@ void MotionMatchingController::measure_execution_time(float current_execution_ti
 
     if (get_nearest_point_on_curve_id(entity->transform->get_position()) >= m_motion_matching_path->curve.size() - 8)
     {
+        m_path_traversal_num++;
+        Debug::log("PATH TRAVERSALS: " + std::to_string(m_path_traversal_num));
         float const average_time = m_accumulated_execution_time / static_cast<float>(m_execution_time_measures_num);
-        Debug::log("Average execution time: " + std::to_string(average_time / 1000.0f) + " ms");
+        Debug::log("     Average execution time: " + std::to_string(average_time / 1000.0f) + " ms");
+
+        measure_root_deviation();
+
+        glm::vec3 const path_beginning = path_point_container.lock()->transform->get_position();
+        entity->transform->set_position(path_beginning);
+        m_skinned_model_ref.lock()->align_animation_to_vector(m_first_realignment_vector);
+        m_restart_traversal = true;
     }
 }
 
