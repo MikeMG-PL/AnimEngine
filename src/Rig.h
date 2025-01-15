@@ -4,6 +4,7 @@
 #include "Globals.h"
 #include "assimp/Importer.hpp"
 #include "assimp/anim.h"
+#include "glm/gtx/matrix_decompose.hpp"
 #include "glm/gtx/quaternion.hpp"
 
 #include <map>
@@ -76,6 +77,34 @@ struct Bone
             data.time_stamp = time_stamp;
             rotations.push_back(data);
         }
+    }
+
+    glm::mat4 blend_poses(glm::mat4 const& a, glm::mat4 const& b, float alpha)
+    {
+        glm::vec3 a_scale = glm::vec3(0.0f);
+        glm::vec3 a_pos = glm::vec3(0.0f);
+        glm::quat a_rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        glm::vec3 a_skew = glm::vec3(0.0f);
+        glm::vec4 a_perspective = glm::vec4(0.0f);
+
+        glm::vec3 b_scale = glm::vec3(0.0f);
+        glm::vec3 b_pos = glm::vec3(0.0f);
+        glm::quat b_rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        glm::vec3 b_skew = glm::vec3(0.0f);
+        glm::vec4 b_perspective = glm::vec4(0.0f);
+
+        glm::decompose(a, a_scale, a_rot, a_pos, a_skew, a_perspective);
+        glm::decompose(b, b_scale, b_rot, b_pos, b_skew, b_perspective);
+
+        glm::vec3 interpolated_position = glm::mix(a_pos, b_pos, alpha);
+        glm::quat interpolated_rotation = glm::slerp(a_rot, b_rot, alpha);
+        interpolated_rotation = glm::normalize(interpolated_rotation);
+
+        glm::mat4 mat_interpolated_position = glm::translate(glm::mat4(1.0f), interpolated_position);
+        glm::mat4 mat_interpolated_rotation = glm::toMat4(interpolated_rotation);
+
+        // This is local transform of the bone
+        return mat_interpolated_position * mat_interpolated_rotation * glm::mat4(1.0f); // skalujesz zalujesz
     }
 
     void update(float animation_time)
