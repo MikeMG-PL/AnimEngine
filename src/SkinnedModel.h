@@ -60,11 +60,16 @@ public:
     virtual bool is_skinned_model() const override;
     void calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform);
     void align_animation_to_vector(glm::vec3 const& v);
+    [[nodiscard]] bool get_update_in_anim_engine() const;
+    void reset_anim_data_only();
 
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/anims/conv77_12_Anim.gltf";
 
     // TESTING BLENDING
+    void calculate_blending();
+    void start_blending();
+    void stop_blending();
     float blend_value = 0.0f;
     std::string blend_to_anim_path = "./res/anims/conv143_01_Anim.gltf";
     // ----------------
@@ -101,6 +106,7 @@ private:
     aiScene const* m_scene = nullptr;
     std::map<std::string, BoneInfo> m_bone_info_map = {};
     u32 m_bone_counter = 0;
+    bool m_update_in_anim_engine = true;
 
     std::string m_directory = "";
     std::vector<std::shared_ptr<Texture>> m_loaded_textures = {};
@@ -109,4 +115,10 @@ private:
     glm::vec3 m_cached_translated_model_pos = glm::vec3(0.0f);
     glm::vec3 m_model_loading_offset = glm::vec3(0.0f);
     bool m_first_bone_calculation = true;
+
+    // TESTING BLENDING
+    bool m_blend_between_clips = false;
+    float m_a_time = 500.0f;
+    std::shared_ptr<Animation> m_b_animation = nullptr;
+    // ----------------
 };

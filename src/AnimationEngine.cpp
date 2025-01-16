@@ -26,7 +26,8 @@ void AnimationEngine::update_animations()
         skinned_model->animation.current_time +=
             skinned_model->animation.ticks_per_second * delta_time * 1.0f; // you can apply play_rate here
 
-        skinned_model->calculate_bone_transform(&skinned_model->animation.root_node, glm::mat4(1.0f));
+        if (skinned_model->get_update_in_anim_engine())
+            skinned_model->calculate_bone_transform(&skinned_model->animation.root_node, glm::mat4(1.0f));
     }
 }
 
@@ -49,7 +50,7 @@ void AnimationEngine::draw_animation_preview()
             skinned_model->animation.current_time = 500.0f;
         }
 
-        if (allow_animation_previews)
+        if (allow_animation_previews && skinned_model->get_update_in_anim_engine())
             skinned_model->calculate_bone_transform(&skinned_model->animation.root_node, glm::mat4(1.0f));
     }
 }

@@ -144,10 +144,15 @@ struct Bone
         return scaleFactor;
     }
 
-    void update(float alpha, glm::vec3 const& blend_offset = glm::vec3(0.0f))
+    void update(float animation_time)
     {
-        // alpha = AK::Math::map_range_clamped(0.0f, 1.0f, 500.0f, 1500.0f, alpha);
+        glm::mat4 const translation = interpolate_position(animation_time);
+        glm::mat4 const rotation = interpolate_rotation(animation_time);
+        local_transform = translation * rotation * glm::mat4(1.0f); // skalujesz zalujesz
+    }
 
+    void blend_clips(float alpha, float a_time = 500.0f, glm::vec3 const& blend_offset = glm::vec3(0.0f))
+    {
         glm::mat4 translation = glm::mat4(1.0f); // interpolate_position(alpha);
         glm::mat4 rotation = glm::mat4(1.0f); // interpolate_rotation(alpha);
 
@@ -158,14 +163,14 @@ struct Bone
         }
         else
         {
-            auto const p0_index = get_position_index(500.0f);
+            auto const p0_index = get_position_index(a_time);
             glm::vec3 const final_position = glm::mix(positions[p0_index].position, b_position.position, alpha);
             translation = glm::translate(glm::mat4(1.0f), final_position);
         }
 
         // Interpolate rotation
         {
-            auto const p0_index = get_rotation_index(500.0f);
+            auto const p0_index = get_rotation_index(a_time);
             glm::quat final_rotation = glm::slerp(rotations[p0_index].orientation, b_rotation.orientation, alpha);
             final_rotation = glm::normalize(final_rotation);
             rotation = glm::toMat4(final_rotation);
