@@ -42,6 +42,9 @@ struct Bone
     std::vector<KeyPosition> positions = {};
     std::vector<KeyRotation> rotations = {};
 
+    KeyPosition b_position = {};
+    KeyRotation b_rotation = {};
+
     u32 num_positions = 0;
     u32 num_rotations = 0;
 
@@ -77,41 +80,6 @@ struct Bone
             data.time_stamp = time_stamp;
             rotations.push_back(data);
         }
-    }
-
-    glm::mat4 blend_poses(glm::mat4 const& a, glm::mat4 const& b, float alpha)
-    {
-        glm::vec3 a_scale = glm::vec3(0.0f);
-        glm::vec3 a_pos = glm::vec3(0.0f);
-        glm::quat a_rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        glm::vec3 a_skew = glm::vec3(0.0f);
-        glm::vec4 a_perspective = glm::vec4(0.0f);
-
-        glm::vec3 b_scale = glm::vec3(0.0f);
-        glm::vec3 b_pos = glm::vec3(0.0f);
-        glm::quat b_rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        glm::vec3 b_skew = glm::vec3(0.0f);
-        glm::vec4 b_perspective = glm::vec4(0.0f);
-
-        glm::decompose(a, a_scale, a_rot, a_pos, a_skew, a_perspective);
-        glm::decompose(b, b_scale, b_rot, b_pos, b_skew, b_perspective);
-
-        glm::vec3 interpolated_position = glm::mix(a_pos, b_pos, alpha);
-        glm::quat interpolated_rotation = glm::slerp(a_rot, b_rot, alpha);
-        interpolated_rotation = glm::normalize(interpolated_rotation);
-
-        glm::mat4 mat_interpolated_position = glm::translate(glm::mat4(1.0f), interpolated_position);
-        glm::mat4 mat_interpolated_rotation = glm::toMat4(interpolated_rotation);
-
-        // This is local transform of the bone
-        return mat_interpolated_position * mat_interpolated_rotation * glm::mat4(1.0f); // skalujesz zalujesz
-    }
-
-    void update(float animation_time)
-    {
-        glm::mat4 const translation = interpolate_position(animation_time);
-        glm::mat4 const rotation = interpolate_rotation(animation_time);
-        local_transform = translation * rotation * glm::mat4(1.0f); // skalujesz zalujesz
     }
 
     u32 get_position_index(float animation_time)
@@ -174,6 +142,36 @@ struct Bone
         float const frames_diff = next_time_stamp - last_time_stamp;
         scaleFactor = mid_way_length / frames_diff;
         return scaleFactor;
+    }
+
+    void update(float alpha, glm::vec3 const& blend_offset = glm::vec3(0.0f))
+    {
+        // alpha = AK::Math::map_range_clamped(0.0f, 1.0f, 500.0f, 1500.0f, alpha);
+
+        glm::mat4 translation = glm::mat4(1.0f); // interpolate_position(alpha);
+        glm::mat4 rotation = glm::mat4(1.0f); // interpolate_rotation(alpha);
+
+        // Interpolate position
+        if (name == "root")
+        {
+            translation = glm::translate(glm::mat4(1.0f), -blend_offset);
+        }
+        else
+        {
+            auto const p0_index = get_position_index(500.0f);
+            glm::vec3 const final_position = glm::mix(positions[p0_index].position, b_position.position, alpha);
+            translation = glm::translate(glm::mat4(1.0f), final_position);
+        }
+
+        // Interpolate rotation
+        {
+            auto const p0_index = get_rotation_index(500.0f);
+            glm::quat final_rotation = glm::slerp(rotations[p0_index].orientation, b_rotation.orientation, alpha);
+            final_rotation = glm::normalize(final_rotation);
+            rotation = glm::toMat4(final_rotation);
+        }
+
+        local_transform = translation * rotation * glm::mat4(1.0f); // skalujesz zalujesz
     }
 };
 

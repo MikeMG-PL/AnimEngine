@@ -97,6 +97,8 @@ void SkinnedModel::draw_editor()
         align_animation_to_vector(glm::vec3(0, 0, 1));
     }
 
+    ImGui::SliderFloat("Blend Alpha", &blend_value, 0.0f, 1.0f);
+
     ImGui::Checkbox("Enable root motion", &enable_root_motion);
 
     // Choose rasterizer draw mode for individual model
@@ -196,8 +198,36 @@ void SkinnedModel::prepare()
         material->first_drawable = std::dynamic_pointer_cast<Drawable>(shared_from_this());
     }
 
+    std::string const cached_anim_path = anim_path;
+    anim_path = blend_to_anim_path;
     load_model(model_path, SkinningLoadMode::Rig);
     load_model(anim_path, SkinningLoadMode::Anim);
+
+    animation.current_time = 500.0f;
+    calculate_bone_transform(&animation.root_node, glm::mat4(1.0f));
+
+    std::vector<KeyPosition> key_positions = {};
+    std::vector<KeyRotation> key_rotations = {};
+
+    std::vector<Bone> b_bones = animation.bones;
+
+    anim_path = cached_anim_path;
+    reset();
+    load_model(model_path, SkinningLoadMode::Rig);
+    load_model(anim_path, SkinningLoadMode::Anim);
+
+    animation.current_time = 500.0f;
+    calculate_bone_transform(&animation.root_node, glm::mat4(1.0f));
+
+    for (u32 i = 0; i < animation.bones.size(); i++)
+    {
+        Bone* a_bone_ptr = find_bone(b_bones[i].name);
+        u32 const pos_index = b_bones[i].get_position_index(animation.current_time);
+        u32 const rot_index = b_bones[i].get_rotation_index(animation.current_time);
+
+        a_bone_ptr->b_position = b_bones[i].positions[pos_index];
+        a_bone_ptr->b_rotation = b_bones[i].rotations[rot_index];
+    }
 }
 
 void SkinnedModel::reset()
@@ -413,6 +443,9 @@ void SkinnedModel::set_vertex_bone_data_to_default(Vertex& vertex)
 
 void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform)
 {
+    if (entity == nullptr)
+        return;
+
     if (m_first_bone_calculation && glm::distance(m_cached_initial_model_pos, entity->transform->get_position()) > 0.0f)
     {
         m_cached_translated_model_pos = entity->transform->get_position();
@@ -429,7 +462,8 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
     if (Bone* bone = find_bone(node_name))
     {
-        glm::vec3 root_offset = glm::vec3(0.0f);
+        glm::vec3 root_offset = {};
+        glm::vec3 rotated_position = {};
         // Get the entity's current rotation in world/space (quaternion)
         glm::quat model_rotation = entity->transform->get_rotation();
         if (node_name == "root" && enable_root_motion)
@@ -442,7 +476,7 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
             decompose(bone->local_transform, scale, root_rotation, root_offset, skew, perspective);
 
             // Rotate the local position by the entity's model/world rotation
-            glm::vec3 rotated_position = model_rotation * (root_offset - animation.cached_root_offset);
+            rotated_position = model_rotation * (root_offset - animation.cached_root_offset);
 
             // Move root back to model (0,0,0)
             bone->local_transform = translate(glm::mat4(1.0f), glm::vec3(0.0f));
@@ -473,7 +507,7 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
             animation.current_time = 0.0f;
 
         node_transform = bone->local_transform;
-        bone->update(animation.current_time);
+        bone->update(blend_value, rotated_position);
     }
 
     glm::mat4 const global_transformation = parent_transform * node_transform;

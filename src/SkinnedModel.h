@@ -64,6 +64,11 @@ public:
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/anims/conv77_12_Anim.gltf";
 
+    // TESTING BLENDING
+    float blend_value = 0.0f;
+    std::string blend_to_anim_path = "./res/anims/conv143_01_Anim.gltf";
+    // ----------------
+
     bool enable_root_motion = true;
 
     NON_SERIALIZED
