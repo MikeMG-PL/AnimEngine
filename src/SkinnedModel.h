@@ -60,6 +60,7 @@ public:
     virtual bool is_skinned_model() const override;
     void calculate_bone_transform(AssimpNodeData const* node, glm::mat4 const& parent_transform);
     void align_animation_to_vector(glm::vec3 const& v);
+    glm::vec3 calculate_animation_alignment(glm::vec3 const& v);
     [[nodiscard]] bool get_update_in_anim_engine() const;
     void reset_anim_data_only();
 
@@ -119,6 +120,8 @@ private:
     // TESTING BLENDING
     bool m_blend_between_clips = false;
     float m_a_time = 500.0f;
+    glm::vec3 m_a_alignment = glm::vec3(0.0f);
+    glm::vec3 m_b_alignment = {0.0f, 90.0f, 0.0f};
     std::shared_ptr<Animation> m_b_animation = nullptr;
     // ----------------
 };

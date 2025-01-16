@@ -212,10 +212,10 @@ void SkinnedModel::prepare()
 
 void SkinnedModel::reset()
 {
-    m_meshes.clear();
-    m_loaded_textures.clear();
+    // m_meshes.clear();
+    // m_loaded_textures.clear();
     animation = {};
-    m_scene = nullptr;
+    // m_scene = nullptr;
     m_bone_counter = 0;
     m_directory = "";
 }
@@ -524,6 +524,24 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
     {
         float new_blend_value = blend_value + delta_time * 3.5f;
         blend_value = std::clamp(new_blend_value, 0.0f, 1.02f);
+
+        // Rotation realignment
+        glm::vec3 b_alignment = m_b_alignment;
+
+        m_a_alignment = glm::radians(m_a_alignment);
+        glm::quat const a = glm::quat(m_a_alignment);
+
+        b_alignment = glm::radians(b_alignment);
+        glm::quat const b = glm::quat(b_alignment);
+
+        glm::quat alignment = glm::slerp(a, b, blend_value);
+        alignment = glm::normalize(alignment);
+
+        glm::vec3 euler = glm::degrees(glm::eulerAngles(alignment));
+        euler.x = 0.0f;
+        euler.z = 0.0f;
+        entity->transform->set_euler_angles(euler);
+
         if (blend_value >= 1.0f)
             stop_blending();
     }
@@ -531,7 +549,12 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
 void SkinnedModel::align_animation_to_vector(glm::vec3 const& v)
 {
-    // here im testing aligning character
+    entity->transform->set_euler_angles(calculate_animation_alignment(v));
+}
+
+glm::vec3 SkinnedModel::calculate_animation_alignment(glm::vec3 const& v)
+{
+    glm::vec3 result = {};
     if (Bone* bone = find_bone("Hips"))
     {
         glm::vec3 scale = glm::vec3(0.0f);
@@ -554,8 +577,9 @@ void SkinnedModel::align_animation_to_vector(glm::vec3 const& v)
         if (cross.y > 0)
             angle_deg = 360.0f - angle_deg;
 
-        entity->transform->set_euler_angles({0.0f, -angle_deg, 0.0f});
+        result = {0.0f, -angle_deg, 0.0f};
     }
+    return result;
 }
 
 bool SkinnedModel::get_update_in_anim_engine() const
@@ -605,7 +629,8 @@ void SkinnedModel::calculate_blending()
 void SkinnedModel::start_blending()
 {
     m_a_time = animation.current_time;
-    reset_anim_data_only();
+    m_a_alignment = entity->transform->get_euler_angles();
+    reset();
     calculate_blending();
     m_blend_between_clips = true;
 }
