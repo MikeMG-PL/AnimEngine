@@ -310,7 +310,7 @@ void MotionMatchingController::sample_in_runtime()
         m_current_online_sample.future_features.emplace_back(sample.future_features[i]);
     }
 
-    choose_best_sample(m_current_online_sample, good_ab);
+    choose_best_sample(m_current_online_sample, facing, good_ab);
 
     // Debug::clear();
     //
@@ -405,7 +405,8 @@ void MotionMatchingController::generate_first_queue()
     }
 }
 
-void MotionMatchingController::choose_best_sample(Sample const& online_sample, glm::vec3 const& realignment_vector)
+void MotionMatchingController::choose_best_sample(Sample const& online_sample, glm::vec3 const& previous_realignment_vector,
+                                                  glm::vec3 const& realignment_vector)
 {
     // TODO: Apply SIMD math here
 
@@ -517,14 +518,19 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
     u32 const clip_id = m_best_sample.clip_id;
     float const clip_time = m_best_sample.clip_local_time;
     auto const asset = m_assets->at(clip_id).path;
-    m_skinned_model_ref.lock()->anim_path = asset;
-    m_skinned_model_ref.lock()->reprepare();
-    m_skinned_model_ref.lock()->animation.current_time = clip_time;
-    m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
-    if (!m_restart_traversal)
-        m_skinned_model_ref.lock()->align_animation_to_vector(realignment_vector);
 
-    m_restart_traversal = false;
+    glm::vec3 realignment_euler_deg = m_skinned_model_ref.lock()->calculate_animation_alignment(realignment_vector);
+    m_skinned_model_ref.lock()->start_blending(
+        asset, clip_time, MotionMatchingSampler::calculate_facing_direction(m_skinned_model_ref.lock()), realignment_vector);
+
+    // m_skinned_model_ref.lock()->anim_path = asset;
+    // m_skinned_model_ref.lock()->reprepare();
+    // m_skinned_model_ref.lock()->animation.current_time = clip_time;
+    // m_skinned_model_ref.lock()->calculate_bone_transform(&m_skinned_model_ref.lock()->animation.root_node, glm::mat4(1.0f));
+    // if (!m_restart_traversal)
+    //     m_skinned_model_ref.lock()->align_animation_to_vector(realignment_vector);
+    //
+    // m_restart_traversal = false;
 
     // Debug::log(std::to_string(good_ab.x) + ", " + std::to_string(good_ab.y) + ", " + std::to_string(good_ab.z));
     m_previous_best_sample_id = best_sample_id;

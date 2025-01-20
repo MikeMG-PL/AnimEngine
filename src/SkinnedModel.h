@@ -62,17 +62,25 @@ public:
     void align_animation_to_vector(glm::vec3 const& v);
     glm::vec3 calculate_animation_alignment(glm::vec3 const& v);
     [[nodiscard]] bool get_update_in_anim_engine() const;
+
     void reset_anim_data_only();
 
     std::string model_path = "./res/models/enemy/enemy.gltf";
     std::string anim_path = "./res/anims/conv77_12_Anim.gltf";
 
     // TESTING BLENDING
-    void calculate_blending();
-    void start_blending();
+    void calculate_blending(Bone& bone, float alpha, glm::vec3 const& blend_offset = glm::vec3(0.0f));
+    void start_blending(std::string const& blend_to_path, float b_time, glm::vec3 const& facing_a, glm::vec3 const& facing_b);
     void stop_blending();
     float blend_value = 0.0f;
-    std::string blend_to_anim_path = "./res/anims/conv143_01_Anim.gltf";
+    // std::string blend_to_anim_path = "./res/anims/conv143_01_Anim.gltf";
+
+    NON_SERIALIZED
+    Animation animation_a = {};
+
+    NON_SERIALIZED
+    Animation animation_b = {};
+
     // ----------------
 
     bool enable_root_motion = true;
@@ -120,8 +128,10 @@ private:
     // TESTING BLENDING
     bool m_blend_between_clips = false;
     float m_a_time = 500.0f;
-    glm::vec3 m_a_alignment = glm::vec3(0.0f);
-    glm::vec3 m_b_alignment = {0.0f, 90.0f, 0.0f};
-    std::shared_ptr<Animation> m_b_animation = nullptr;
+    float m_b_time = 500.0f;
+    glm::vec3 m_a_alignment = {};
+    glm::vec3 m_b_alignment = {};
+    glm::quat m_a_rotation = {};
+    glm::quat m_b_rotation = {};
     // ----------------
 };

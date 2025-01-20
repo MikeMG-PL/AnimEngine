@@ -97,13 +97,13 @@ void SkinnedModel::draw_editor()
         align_animation_to_vector(glm::vec3(0, 0, 1));
     }
 
-    if (ImGui::Button("Switch blending"))
-    {
-        if (m_blend_between_clips)
-            stop_blending();
-        else
-            start_blending();
-    }
+    // if (ImGui::Button("Switch blending"))
+    // {
+    //     if (m_blend_between_clips)
+    //         stop_blending();
+    //     else
+    //         start_blending();
+    // }
 
     ImGui::SliderFloat("Blend Alpha", &blend_value, 0.0f, 1.0f);
 
@@ -488,12 +488,6 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
         node_transform = bone->local_transform;
 
-        if (glm::length(rotated_position) > 0.00001f)
-        {
-            Debug::log(std::to_string(rotated_position.x) + ", " + std::to_string(rotated_position.y) + ", "
-                       + std::to_string(rotated_position.z));
-        }
-
         // BTW zeby zrobic realignment rotacji mozna w jednej funkcji z sama poza, po prostu dodatkowa macierz z finalnej rotacji jako target blendu
 
         if (!m_blend_between_clips)
@@ -502,7 +496,8 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
         }
         else
         {
-            bone->blend_clips(blend_value, m_a_time, rotated_position);
+            // bone->blend_clips(blend_value, m_a_time, rotated_position);
+            calculate_blending(*bone, blend_value, rotated_position);
         }
     }
 
@@ -522,29 +517,43 @@ void SkinnedModel::calculate_bone_transform(AssimpNodeData const* node, glm::mat
 
     if (m_blend_between_clips && node_name == "root")
     {
-        float new_blend_value = blend_value + delta_time * 3.5f;
-        blend_value = std::clamp(new_blend_value, 0.0f, 1.02f);
+        float new_blend_value = blend_value + delta_time * 0.5f;
+        blend_value = std::clamp(new_blend_value, 0.0f, 1.0f);
 
-        // Rotation realignment
-        glm::vec3 b_alignment = m_b_alignment;
-
-        m_a_alignment = glm::radians(m_a_alignment);
-        glm::quat const a = glm::quat(m_a_alignment);
-
-        b_alignment = glm::radians(b_alignment);
-        glm::quat const b = glm::quat(b_alignment);
-
-        glm::quat alignment = glm::slerp(a, b, blend_value);
-        alignment = glm::normalize(alignment);
-
-        glm::vec3 euler = glm::degrees(glm::eulerAngles(alignment));
-        euler.x = 0.0f;
-        euler.z = 0.0f;
-        entity->transform->set_euler_angles(euler);
-
-        if (blend_value >= 1.0f)
+        if (new_blend_value > 1.0f)
             stop_blending();
     }
+
+    // Rotation realignment
+
+    // align_animation_to_vector(m_b_alignment);
+
+    // m_a_alignment.x = glm::radians(m_a_alignment.x);
+    // m_a_alignment.y = glm::radians(m_a_alignment.y);
+    // m_a_alignment.z = glm::radians(m_a_alignment.z);
+    // glm::quat a = glm::quat(m_a_alignment);
+    //
+    // m_b_alignment.x = glm::radians(m_b_alignment.x);
+    // m_b_alignment.y = glm::radians(m_b_alignment.y);
+    // m_b_alignment.z = glm::radians(m_b_alignment.z);
+    // glm::quat b = glm::quat(m_b_alignment);
+    //
+    // a = glm::normalize(a);
+    // b = glm::normalize(b);
+    //
+    // glm::quat alignment = glm::slerp(a, b, blend_value);
+    // alignment = glm::normalize(alignment);
+    //
+    // glm::vec3 euler_radians = glm::eulerAngles(alignment);
+    // glm::vec3 euler = {0.0f, glm::degrees(euler_radians.y), 0.0f};
+
+    // if (node_name == "root")
+    // {
+
+    // auto const v = glm::normalize(glm::mix(m_a_alignment, m_b_alignment, blend_value));
+    // align_animation_to_vector(v);
+    Debug::log("Current time: " + std::to_string(animation.current_time) + ", b_time: " + std::to_string(m_b_time));
+    // }
 }
 
 void SkinnedModel::align_animation_to_vector(glm::vec3 const& v)
@@ -594,52 +603,74 @@ void SkinnedModel::reset_anim_data_only()
     m_directory = "";
 }
 
-void SkinnedModel::calculate_blending()
+void SkinnedModel::calculate_blending(Bone& bone, float alpha, glm::vec3 const& blend_offset)
 {
-    m_update_in_anim_engine = false;
-    std::string const cached_anim_path = anim_path;
-    anim_path = blend_to_anim_path;
-    load_model(anim_path, SkinningLoadMode::Anim);
+    glm::mat4 translation = glm::mat4(1.0f); // interpolate_position(alpha);
+    glm::mat4 rotation = glm::mat4(1.0f); // interpolate_rotation(alpha);
 
-    animation.current_time = 500.0f;
-    calculate_bone_transform(&animation.root_node, glm::mat4(1.0f));
+    Bone* bone_a = nullptr;
+    Bone* bone_b = nullptr;
 
-    std::vector<Bone> b_bones = animation.bones;
-    m_b_animation = std::make_shared<Animation>(animation);
-
-    anim_path = cached_anim_path;
-    reset();
-    load_model(anim_path, SkinningLoadMode::Anim);
-
-    animation.current_time = 500.0f;
-    calculate_bone_transform(&animation.root_node, glm::mat4(1.0f));
-
-    for (u32 i = 0; i < animation.bones.size(); i++)
     {
-        Bone* a_bone_ptr = find_bone(b_bones[i].name);
-        u32 const pos_index = b_bones[i].get_position_index(animation.current_time);
-        u32 const rot_index = b_bones[i].get_rotation_index(animation.current_time);
-
-        a_bone_ptr->b_position = b_bones[i].positions[pos_index];
-        a_bone_ptr->b_rotation = b_bones[i].rotations[rot_index];
+        auto const iter = std::ranges::find_if(animation_a.bones, [&](Bone const& b) { return b.name == bone.name; });
+        bone_a = &(*iter);
     }
-    m_update_in_anim_engine = true;
+
+    {
+        auto const iter = std::ranges::find_if(animation_b.bones, [&](Bone const& b) { return b.name == bone.name; });
+        bone_b = &(*iter);
+    }
+
+    // Interpolate position
+    if (bone.name == "root")
+    {
+        translation = glm::translate(glm::mat4(1.0f), -blend_offset);
+    }
+    else
+    {
+        auto const p0_index = bone_a->get_position_index(m_a_time);
+        auto const p1_index = bone_b->get_position_index(m_b_time);
+        glm::vec3 const final_position = glm::mix(bone_a->positions[p0_index].position, bone_b->positions[p1_index].position, alpha);
+        translation = glm::translate(glm::mat4(1.0f), final_position);
+    }
+
+    {
+        auto const p0_index = bone_a->get_rotation_index(m_a_time);
+        auto const p1_index = bone_b->get_rotation_index(m_b_time);
+        glm::quat final_rotation = glm::slerp(bone_a->rotations[p0_index].orientation, bone_b->rotations[p1_index].orientation, alpha);
+        final_rotation = glm::normalize(final_rotation);
+        rotation = glm::toMat4(final_rotation);
+    }
+
+    bone.local_transform = translation * rotation * glm::mat4(1.0f); // skalujesz zalujesz
 }
 
-void SkinnedModel::start_blending()
+void SkinnedModel::start_blending(std::string const& blend_to_path, float b_time, glm::vec3 const& facing_a, glm::vec3 const& facing_b)
 {
+    m_update_in_anim_engine = false;
+    blend_value = 0.0f;
+    animation_a = animation;
     m_a_time = animation.current_time;
-    m_a_alignment = entity->transform->get_euler_angles();
+    m_a_alignment = facing_a;
+    m_b_alignment = facing_b;
+
     reset();
-    calculate_blending();
+
+    anim_path = blend_to_path;
+    load_model(anim_path, SkinningLoadMode::Anim);
+
+    m_b_time = b_time;
+    animation.current_time = b_time;
+
+    animation_b = animation;
     m_blend_between_clips = true;
+    m_update_in_anim_engine = true;
 }
 
 void SkinnedModel::stop_blending()
 {
     m_blend_between_clips = false;
-    animation = *m_b_animation;
-    blend_value = 0.0f;
+    animation = animation_b;
 }
 
 void SkinnedModel::initialize_animation()

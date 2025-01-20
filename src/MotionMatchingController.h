@@ -38,7 +38,7 @@ private:
     void draw_path();
     void sample_in_runtime();
     void generate_first_queue();
-    void choose_best_sample(Sample const& online_sample, glm::vec3 const& realignment_vector);
+    void choose_best_sample(Sample const& online_sample, glm::vec3 const& previous_realignment_vector, glm::vec3 const& realignment_vector);
     void measure_root_deviation();
     void measure_execution_time(float current_execution_time);
 
