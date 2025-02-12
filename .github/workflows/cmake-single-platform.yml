@@ -4,7 +4,7 @@ name: CMake Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "inz" ]
   pull_request:
     branches: [ "main" ]
 
