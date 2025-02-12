@@ -414,6 +414,7 @@ void MotionMatchingController::choose_best_sample(Sample const& online_sample, g
     float current_cost = FLT_MAX;
 
     // Accentuate
+
     for (u32 i = 0; i < feature_num; i++)
     {
         float multiplier = 1.0f * (feature_num - i);
